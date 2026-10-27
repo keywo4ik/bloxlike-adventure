@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>Blox-like Islands</title>
 <style>
+ <script>
+  window.addEventListener('DOMContentLoaded', () => {
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+    s.onload = () => console.log('PeerJS loaded');
+    document.head.appendChild(s);
+  });
+</script>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     margin: 0; padding: 0; overflow: hidden; background: #05101f;
@@ -213,6 +221,20 @@
       <button id="logoutBtn">🚪 Выйти</button>
     </div>
     <div id="slotsContainer"></div>
+   <div id="onlinePanel" style="margin-top:20px;padding:16px;background:rgba(10,31,63,0.8);border-radius:12px;border:1px solid #3498db;">
+  <h3 style="margin:0 0 10px;color:#3498db;">🌐 Онлайн-режим (P2P)</h3>
+  <div style="font-size:12px;color:#6a8fb5;margin-bottom:10px;">Оба игрока должны быть в слоте и в игре</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button id="hostOnlineBtn" style="flex:1;padding:10px;background:linear-gradient(135deg,#2ecc71,#27ae60);color:#fff;border:0;border-radius:8px;font-weight:700;cursor:pointer;">Создать</button>
+    <button id="joinOnlineBtn" style="flex:1;padding:10px;background:linear-gradient(135deg,#3498db,#2980b9);color:#fff;border:0;border-radius:8px;font-weight:700;cursor:pointer;">Присоединиться</button>
+  </div>
+  <div id="onlineCodeBox" style="display:none;margin-top:10px;">
+    <div style="font-size:11px;color:#6a8fb5;">Код комнаты:</div>
+    <div id="onlineCodeDisplay" style="font-size:18px;font-weight:900;color:#00ccff;letter-spacing:3px;text-align:center;padding:8px;background:rgba(0,0,0,0.3);border-radius:6px;margin-top:4px;"></div>
+    <button id="copyOnlineCodeBtn" style="width:100%;margin-top:6px;padding:6px;background:rgba(52,152,219,0.5);color:#fff;border:0;border-radius:6px;cursor:pointer;font-size:12px;">📋 Скопировать</button>
+  </div>
+  <div id="onlineStatus" style="margin-top:10px;font-size:12px;color:#6a8fb5;min-height:16px;"></div>
+</div>
     <div class="menu-footer">
       <button id="howBtn">❓ Как играть</button>
       <button id="importBtn">📤 Импорт файла</button>
@@ -300,8 +322,152 @@
   </div>
 </div>
 
-<script type="module">
+<script type=<"module">
 // ================= AUTH =================
+ // ================= ONLINE P2P =================
+const Online = {
+  peer: null, connections: [], isHost: false, roomCode: null,
+  remotePlayers: new Map(), syncInterval: null,
+  sceneRef: null, playerRef: null,
+  localData: null
+};
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  return code;
+}
+
+function setOnlineStatus(msg) {
+  const el = document.getElementById('onlineStatus');
+  if (el) el.textContent = msg;
+}
+
+function createRemoteMesh(peerId, profile) {
+  if (!Online.sceneRef) return null;
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff8800 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), bodyMat);
+  body.position.y = 0.9; body.castShadow = true; group.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0xf5cd79 }));
+  head.position.y = 2.0; head.castShadow = true; group.add(head);
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, 256, 64);
+  ctx.fillStyle = '#ffaa44'; ctx.font = 'bold 28px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText((profile?.playerName || 'Игрок').slice(0, 12), 128, 32);
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  sprite.scale.set(2.5, 0.6, 1); sprite.position.y = 2.9;
+  group.add(sprite);
+  group.position.set(0, 0, 0);
+  Online.sceneRef.add(group);
+  return group;
+}
+
+function removeRemoteMesh(peerId) {
+  const r = Online.remotePlayers.get(peerId);
+  if (r && r.mesh && r.mesh.parent) r.mesh.parent.remove(r.mesh);
+  Online.remotePlayers.delete(peerId);
+}
+
+function startHosting() {
+  if (typeof window.Peer === 'undefined') { alert('PeerJS не загрузился. Проверьте интернет или откройте через http://'); return; }
+  if (Online.peer) { alert('Уже в комнате'); return; }
+  const code = generateRoomCode();
+  try {
+    Online.peer = new window.Peer(code, { debug: 0 });
+    Online.isHost = true; Online.roomCode = code;
+    Online.peer.on('open', (id) => {
+      setOnlineStatus('✅ Комната создана. Код: ' + id);
+      document.getElementById('onlineCodeBox').style.display = 'block';
+      document.getElementById('onlineCodeDisplay').textContent = id;
+      alert('Комната создана!\nКод: ' + id + '\n\nОтправьте его другу.');
+    });
+    Online.peer.on('connection', (conn) => {
+      Online.connections.push(conn);
+      setupConnection(conn);
+      setOnlineStatus('👤 Друг подключился: ' + conn.peer);
+    });
+    Online.peer.on('error', (err) => {
+      console.error(err);
+      alert('Ошибка: ' + err.type);
+      Online.peer = null; Online.isHost = false; Online.roomCode = null;
+    });
+  } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+function joinRoom(code) {
+  if (typeof window.Peer === 'undefined') { alert('PeerJS не загрузился'); return; }
+  if (Online.peer) { alert('Уже в комнате'); return; }
+  code = (code || '').trim().toUpperCase();
+  if (code.length !== 6) { alert('Код должен быть 6 символов'); return; }
+  try {
+    Online.peer = new window.Peer(null, { debug: 0 });
+    Online.isHost = false; Online.roomCode = code;
+    Online.peer.on('open', () => {
+      const conn = Online.peer.connect(code, { reliable: true });
+      Online.connections.push(conn);
+      setupConnection(conn);
+      setOnlineStatus('Подключение...');
+    });
+    Online.peer.on('error', (err) => {
+      console.error(err);
+      alert('Не удалось подключиться. Код верный?');
+      Online.peer = null;
+    });
+  } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+function setupConnection(conn) {
+  conn.on('open', () => {
+    if (Online.localData) conn.send({ type: 'profile', data: Online.localData });
+    if (Online.playerRef) conn.send({ type: 'move', x: Online.playerRef.position.x, z: Online.playerRef.position.z, rot: Online.playerRef.rotation.y });
+    setOnlineStatus('✅ Подключено');
+    startSyncLoop();
+  });
+  conn.on('data', (data) => {
+    if (data.type === 'profile') {
+      const mesh = createRemoteMesh(conn.peer, data.data);
+      Online.remotePlayers.set(conn.peer, { mesh, profile: data.data });
+      if (!Online.isHost && Online.localData) conn.send({ type: 'profile', data: Online.localData });
+    } else if (data.type === 'move') {
+      const r = Online.remotePlayers.get(conn.peer);
+      if (r && r.mesh) {
+        r.mesh.position.set(data.x, 0, data.z);
+        r.mesh.rotation.y = data.rot || 0;
+      }
+    }
+  });
+  conn.on('close', () => {
+    removeRemoteMesh(conn.peer);
+    Online.connections = Online.connections.filter(c => c !== conn);
+    setOnlineStatus('❌ Игрок отключился');
+  });
+  conn.on('error', (e) => console.error('Conn err:', e));
+}
+
+function startSyncLoop() {
+  if (Online.syncInterval) return;
+  Online.syncInterval = setInterval(() => {
+    if (!Online.playerRef) return;
+    Online.connections.forEach(conn => {
+      if (conn.open) conn.send({ type: 'move', x: Online.playerRef.position.x, z: Online.playerRef.position.z, rot: Online.playerRef.rotation.y });
+    });
+  }, 100);
+}
+
+function stopOnline() {
+  if (Online.syncInterval) { clearInterval(Online.syncInterval); Online.syncInterval = null; }
+  Online.connections.forEach(c => { try { c.close(); } catch {} });
+  Online.connections = [];
+  Online.remotePlayers.forEach((r, id) => removeRemoteMesh(id));
+  if (Online.peer) { try { Online.peer.destroy(); } catch {} Online.peer = null; }
+  Online.isHost = false; Online.roomCode = null;
+  setOnlineStatus('');
+}
 const ACCOUNTS_KEY = 'blox_accounts_v2';
 const SESSION_KEY = 'blox_session_v2';
 
@@ -809,7 +975,7 @@ function setupGame(saveData) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(3, 4, 3), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x660000, emissiveIntensity: 0.4 }));
     mesh.castShadow = true; mesh.position.set(isl.x, 2, isl.z); scene.add(mesh);
     const e = createEnemyObject(mesh, 5000, 5000, true);
-    e.damage = 40; e.speed = 2.5; e.islandIdx = 5; e.isBoss = true; e.originalEmissive = 0x660000;
+    e.damage = 40; e.speed = 4.5; e.islandIdx = 5; e.isBoss = true; e.originalEmissive = 0x660000;
     enemies.push(e);
   }
   function spawnPoisonBoss() {
@@ -1611,6 +1777,26 @@ function setupGame(saveData) {
 
   window.__startGame = () => { gameStarted = true; lastTime = performance.now(); updateHUD(); updateRegenUI(); updateSkillUI(); };
   window.__returnToMenu = () => { saveProgress(); setTimeout(() => location.reload(), 150); };
+ 
+  // Экспорт данных для онлайна
+  Online.sceneRef = scene;
+  Online.playerRef = player;
+  Online.localData = {
+    playerName: state.playerName,
+    level: state.level,
+    beli: state.beli,
+    equippedFruit: state.equippedFruit?.name || null,
+    reachedSecondSea: state.reachedSecondSea
+  };
+  setInterval(() => {
+    Online.localData = {
+      playerName: state.playerName,
+      level: state.level,
+      beli: state.beli,
+      equippedFruit: state.equippedFruit?.name || null,
+      reachedSecondSea: state.reachedSecondSea
+    };
+  }, 1000);
 }
 
 // ================= SLOT UI =================
@@ -1814,7 +2000,19 @@ async function init() {
     showError(err.message || 'Неизвестная ошибка.');
   }
 }
-
+// ================= ONLINE UI =================
+document.getElementById('hostOnlineBtn')?.addEventListener('click', () => { startHosting(); });
+document.getElementById('joinOnlineBtn')?.addEventListener('click', () => {
+  const code = prompt('Введите код друга (6 символов):');
+  if (code) joinRoom(code);
+});
+document.getElementById('copyOnlineCodeBtn')?.addEventListener('click', () => {
+  const code = document.getElementById('onlineCodeDisplay').textContent;
+  if (!code) return;
+  if (navigator.clipboard) navigator.clipboard.writeText(code).then(() => alert('Скопировано!')).catch(() => prompt('Скопируйте:', code));
+  else prompt('Скопируйте:', code);
+});
+ 
 init();
 </script>
 </body>
