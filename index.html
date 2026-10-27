@@ -24,7 +24,6 @@
   #loadingError { font-size: 14px; color: #e74c3c; text-align: center; }
   #loadingError button { margin-top: 14px; padding: 10px 22px; background: #2ecc71; color: #111; border: 0; border-radius: 8px; font-weight: 700; cursor: pointer; }
 
-  /* AUTH SCREEN */
   #authScreen { position: fixed; inset: 0; background: linear-gradient(135deg, #05101f 0%, #0a1f3f 50%, #0f2a4a 100%); display: none; align-items: center; justify-content: center; z-index: 95; padding: 20px; overflow-y: auto; }
   .auth-container { width: 100%; max-width: 400px; background: rgba(10,31,63,0.85); border-radius: 16px; padding: 24px; border: 1px solid rgba(100,150,220,0.3); box-shadow: 0 0 40px rgba(52,152,219,0.15); }
   .auth-container h1 { font-size: 26px; text-align: center; margin: 0 0 6px; background: linear-gradient(45deg, #2ecc71, #3498db, #9b59b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -39,7 +38,6 @@
   .auth-error { color: #e74c3c; font-size: 13px; margin-top: 10px; min-height: 16px; text-align: center; line-height: 1.4; }
   .auth-note { text-align: center; color: #6a8fb5; font-size: 11px; margin-top: 14px; }
 
-  /* START MENU with slots */
   #startMenu { position: fixed; inset: 0; background: linear-gradient(135deg, #05101f 0%, #0a1f3f 50%, #0f2a4a 100%); display: none; align-items: flex-start; justify-content: center; z-index: 90; padding: 20px; overflow-y: auto; }
   .menu-content { width: 100%; max-width: 700px; text-align: center; margin: auto; }
   .menu-content h1 { font-size: 32px; font-weight: 900; margin: 0 0 8px; background: linear-gradient(45deg, #2ecc71, #3498db, #9b59b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -181,7 +179,6 @@
   </div>
 </div>
 
-<!-- AUTH SCREEN -->
 <div id="authScreen">
   <div class="auth-container">
     <h1>⚓ Blox-like Islands</h1>
@@ -207,7 +204,6 @@
   </div>
 </div>
 
-<!-- START MENU with slots -->
 <div id="startMenu">
   <div class="menu-content">
     <h1>⚓ Blox-like Islands</h1>
@@ -227,6 +223,7 @@
       <p><b>🏝 14 островов · 100 уровней · Тюрьма с 3 боссами</b></p>
       <p><b>💾 4 слота сохранений · 📥 Экспорт/📤 Импорт JSON</b></p>
       <p><b>🌀 Голубой слот = Второе море достигнуто</b></p>
+      <p><b>💚 При загрузке HP всегда полный — даже после смерти</b></p>
     </div>
   </div>
 </div>
@@ -636,7 +633,6 @@ function setupGame(saveData) {
       if (st.level !== undefined) state.level = st.level;
       if (st.xp !== undefined) state.xp = st.xp;
       if (st.xpNext !== undefined) state.xpNext = st.xpNext;
-      if (st.hp !== undefined) state.hp = st.hp;
       if (st.maxHp !== undefined) state.maxHp = st.maxHp;
       if (st.baseDamage !== undefined) state.baseDamage = st.baseDamage;
       if (st.beli !== undefined) state.beli = st.beli;
@@ -664,7 +660,14 @@ function setupGame(saveData) {
     }
     if (st && st.position) player.position.set(st.position.x, 0, st.position.z);
   }
-  if (state.equippedAccessory) { state.maxShield = state.equippedAccessory.shield || 0; state.shield = state.maxShield; }
+
+  // ⚠️ ВАЖНО: ВСЕГДА восстанавливаем HP на максимум при загрузке
+  // Иначе после смерти можно застрять с HP=0
+  state.hp = state.maxHp;
+  if (state.equippedAccessory) {
+    state.maxShield = state.equippedAccessory.shield || 0;
+    state.shield = state.maxShield;
+  }
   if (state.hasAura) { pBodyMat.color.setHex(0x111111); pHeadMat.color.setHex(0x222222); }
 
   function fmt(n) { return String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
@@ -1507,6 +1510,10 @@ function setupGame(saveData) {
   function showGameOver() {
     stopGatling();
     if (state.pullAnim) { scene.remove(state.pullAnim.arm); state.pullAnim = null; state.pulling = false; }
+    // ⚠️ ВАЖНО: восстанавливаем HP на максимум ПЕРЕД сохранением,
+    // иначе при следующей загрузке можно застрять с HP=0
+    state.hp = state.maxHp;
+    if (state.equippedAccessory) state.shield = state.maxShield;
     saveProgress();
     document.getElementById('gameover').style.display = 'flex';
     document.getElementById('finalScore').textContent = fmt(state.beli);
@@ -1519,7 +1526,8 @@ function setupGame(saveData) {
       reachedSecondSea: state.reachedSecondSea, savedAt: Date.now(),
       state: {
         level: state.level, xp: state.xp, xpNext: state.xpNext,
-        hp: state.hp, maxHp: state.maxHp, baseDamage: state.baseDamage, beli: state.beli,
+        // ⚠️ Сохраняем ВСЕГДА полный HP — чтобы при загрузке точно не застрять
+        hp: state.maxHp, maxHp: state.maxHp, baseDamage: state.baseDamage, beli: state.beli,
         inventory: state.inventory.map(i => ({ ...i })),
         equippedFruitName: state.equippedFruit?.name || null,
         equippedWeaponName: state.equippedWeapon?.name || null,
@@ -1537,13 +1545,11 @@ function setupGame(saveData) {
       islands: ISLANDS.map(isl => ({ ...isl.quest })),
     };
   }
-  let saveInProgress = false;
+  // ⚠️ УБРАН saveInProgress — теперь сохранения не блокируют друг друга
   async function saveProgress() {
-    if (!state.currentSlot || saveInProgress || !currentUser) return;
-    saveInProgress = true;
+    if (!state.currentSlot || !currentUser) return;
     try { await SaveAPI.write(userSlotKey(state.currentSlot), snapshot()); }
     catch (e) { console.warn('Save failed:', e); }
-    saveInProgress = false;
   }
   setInterval(() => { if (gameStarted) saveProgress(); }, 30000);
   window.addEventListener('beforeunload', () => { if (gameStarted) saveProgress(); });
@@ -1700,7 +1706,6 @@ async function playSlot(slotId, data) {
   if (window.__startGame) window.__startGame();
 }
 
-// Import handler
 document.getElementById('importBtn').addEventListener('click', async () => {
   if (!currentUser) { alert('Сначала войди в аккаунт'); return; }
   const r = await SaveAPI.import();
