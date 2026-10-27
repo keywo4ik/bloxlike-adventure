@@ -1,0 +1,1816 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Blox-like Islands</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; overflow: hidden; background: #05101f;
+    font-family: system-ui, Arial, sans-serif; color: #d8e8ff;
+    touch-action: none; overscroll-behavior: none;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  }
+  canvas { display: block; }
+
+  #loadingScreen { position: fixed; inset: 0; background: linear-gradient(135deg, #05101f 0%, #0a1f3f 100%); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .loading-content { width: 100%; max-width: 380px; text-align: center; }
+  .game-logo { font-size: 30px; font-weight: 900; margin-bottom: 34px; background: linear-gradient(45deg, #2ecc71, #3498db, #9b59b6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 1px; }
+  .loading-bar { width: 100%; height: 8px; background: #0a1f3f; border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
+  #loadingFill { height: 100%; width: 0%; background: linear-gradient(90deg, #2ecc71, #3498db); border-radius: 6px; transition: width 0.3s ease; }
+  #loadingText { font-size: 13px; color: #6a8fb5; animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+  #loadingError { font-size: 14px; color: #e74c3c; text-align: center; }
+  #loadingError button { margin-top: 14px; padding: 10px 22px; background: #2ecc71; color: #111; border: 0; border-radius: 8px; font-weight: 700; cursor: pointer; }
+
+  /* AUTH SCREEN */
+  #authScreen { position: fixed; inset: 0; background: linear-gradient(135deg, #05101f 0%, #0a1f3f 50%, #0f2a4a 100%); display: none; align-items: center; justify-content: center; z-index: 95; padding: 20px; overflow-y: auto; }
+  .auth-container { width: 100%; max-width: 400px; background: rgba(10,31,63,0.85); border-radius: 16px; padding: 24px; border: 1px solid rgba(100,150,220,0.3); box-shadow: 0 0 40px rgba(52,152,219,0.15); }
+  .auth-container h1 { font-size: 26px; text-align: center; margin: 0 0 6px; background: linear-gradient(45deg, #2ecc71, #3498db, #9b59b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .auth-subtitle { text-align: center; color: #6a8fb5; font-size: 13px; margin: 0 0 20px; }
+  .auth-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .auth-tab { flex: 1; padding: 10px; border: 0; background: rgba(100,150,220,0.15); color: #aaccff; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 14px; touch-action: manipulation; }
+  .auth-tab.active { background: rgba(46,204,113,0.85); color: #fff; }
+  .auth-form input { width: 100%; padding: 14px; margin-bottom: 10px; border: 1px solid rgba(100,150,220,0.3); background: rgba(5,16,31,0.6); color: #d8e8ff; border-radius: 8px; font-size: 15px; }
+  .auth-form input:focus { outline: 0; border-color: #2ecc71; }
+  .auth-submit { width: 100%; padding: 14px; border: 0; background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; font-weight: 700; font-size: 16px; border-radius: 8px; cursor: pointer; touch-action: manipulation; }
+  .auth-submit:active { transform: scale(0.98); }
+  .auth-error { color: #e74c3c; font-size: 13px; margin-top: 10px; min-height: 16px; text-align: center; line-height: 1.4; }
+  .auth-note { text-align: center; color: #6a8fb5; font-size: 11px; margin-top: 14px; }
+
+  /* START MENU with slots */
+  #startMenu { position: fixed; inset: 0; background: linear-gradient(135deg, #05101f 0%, #0a1f3f 50%, #0f2a4a 100%); display: none; align-items: flex-start; justify-content: center; z-index: 90; padding: 20px; overflow-y: auto; }
+  .menu-content { width: 100%; max-width: 700px; text-align: center; margin: auto; }
+  .menu-content h1 { font-size: 32px; font-weight: 900; margin: 0 0 8px; background: linear-gradient(45deg, #2ecc71, #3498db, #9b59b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { color: #6a8fb5; margin: 0 0 16px; font-size: 14px; }
+  #accountBar { display: flex; justify-content: space-between; align-items: center; background: rgba(10,31,63,0.75); padding: 10px 14px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(100,150,220,0.3); }
+  #accountName { font-size: 13px; }
+  #logoutBtn { background: rgba(231,76,60,0.85); border: 0; color: #fff; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700; touch-action: manipulation; }
+  #slotsContainer { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 640px) { #slotsContainer { grid-template-columns: 1fr 1fr; } }
+  .slot-card { background: rgba(10,31,63,0.75); border: 2px solid rgba(100,150,220,0.3); border-radius: 14px; padding: 14px; text-align: left; position: relative; transition: all 0.2s; }
+  .slot-card.second-sea { border-color: #00ccff; box-shadow: 0 0 20px rgba(0,204,255,0.5), inset 0 0 15px rgba(0,204,255,0.15); background: linear-gradient(135deg, rgba(0,150,220,0.15), rgba(10,31,63,0.85)); }
+  .slot-card.empty { opacity: 0.75; text-align: center; padding: 24px 14px; }
+  .slot-card.empty .slot-empty-text { color: #6a8fb5; font-size: 14px; margin-bottom: 10px; }
+  .slot-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .slot-badge { font-size: 11px; font-weight: 700; color: #6a8fb5; letter-spacing: 1px; text-transform: uppercase; }
+  .slot-card.second-sea .slot-badge { color: #00ccff; }
+  .slot-player { font-size: 15px; font-weight: 700; color: #fff; }
+  .slot-info { font-size: 12px; color: #aaccff; margin-bottom: 10px; line-height: 1.5; }
+  .slot-info .blue { color: #00ccff; font-weight: 700; }
+  .slot-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .slot-btn { flex: 1; min-width: 60px; padding: 8px 6px; border: 0; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; touch-action: manipulation; background: rgba(52,152,219,0.85); color: #fff; }
+  .slot-btn.play { background: linear-gradient(135deg, #2ecc71, #27ae60); flex: 2; }
+  .slot-btn.play.blue { background: linear-gradient(135deg, #00ccff, #0088cc); }
+  .slot-btn.danger { background: rgba(231,76,60,0.85); }
+  .slot-btn.ghost { background: rgba(100,150,220,0.2); border: 1px solid rgba(100,150,220,0.4); }
+  .slot-btn:active { transform: scale(0.97); }
+  .slot-btn.create { background: linear-gradient(135deg, #9b59b6, #6a00cc); padding: 12px; font-size: 14px; }
+  .slot-empty-note { font-size: 11px; color: #6a8fb5; margin-top: 6px; }
+  .menu-footer { margin-top: 16px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .menu-footer button { padding: 10px 16px; border: 0; border-radius: 8px; background: rgba(100,150,220,0.15); color: #d8e8ff; border: 1px solid rgba(100,150,220,0.3); font-weight: 600; cursor: pointer; font-size: 13px; }
+  #howPanel { margin-top: 16px; padding: 16px; background: rgba(10,31,63,0.7); border-radius: 12px; text-align: left; font-size: 13px; line-height: 1.7; }
+  #howPanel p { margin: 8px 0; }
+  #howPanel b { color: #3498db; }
+
+  body:not(.playing) #hud, body:not(.playing) #topBtns, body:not(.playing) #joystick, body:not(.playing) #attackBtn, body:not(.playing) #interactBtn, body:not(.playing) #skillBar, body:not(.playing) #dragonVariantBtn, body:not(.playing) #instinctBtn, body:not(.playing) #menuBtn { display: none !important; }
+
+  #hud { position: fixed; top: calc(8px + env(safe-area-inset-top)); left: calc(8px + env(safe-area-inset-left)); background: rgba(5,16,31,0.7); padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; min-width: 210px; pointer-events: none; backdrop-filter: blur(4px); z-index: 4; border: 1px solid rgba(100,150,220,0.2); }
+  .bar { width: 100%; height: 8px; background: #0a1f3f; border-radius: 6px; overflow: hidden; margin: 3px 0 7px; }
+  .bar > div { height: 100%; width: 100%; background: #2ecc71; transition: width 0.1s linear; }
+  #xpFill { background: #3498db; width: 0%; }
+  #shieldFill { background: #3498db; width: 0%; }
+  #shieldBar { display: none; }
+  #transformBar { display: none; margin-top: 4px; }
+  #transformFill { background: #a020f0; width: 100%; }
+  #instinctBar { display: none; margin-top: 4px; }
+  #instinctFill { background: #9b59b6; width: 100%; }
+  #regenStatus { font-size: 11px; color: #6c6; margin-top: 4px; min-height: 14px; }
+
+  #topBtns { position: fixed; top: calc(8px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right)); display: flex; flex-direction: column; gap: 6px; z-index: 5; max-width: 46vw; }
+  .topBtn { background: rgba(5,16,31,0.8); border: 1px solid rgba(100,150,220,0.3); color: #d8e8ff; padding: 8px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; backdrop-filter: blur(4px); touch-action: manipulation; text-align: right; }
+  #menuBtn { background: rgba(155,89,182,0.85) !important; border-color: rgba(200,150,255,0.9) !important; }
+  #dragonVariantBtn { position: fixed; top: calc(8px + env(safe-area-inset-top) + 340px); right: calc(8px + env(safe-area-inset-right)); background: rgba(255,102,0,0.85); border: 2px solid rgba(255,200,100,0.9); color: #fff; padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; z-index: 5; touch-action: manipulation; display: none; }
+  #instinctBtn { position: fixed; top: calc(8px + env(safe-area-inset-top) + 380px); right: calc(8px + env(safe-area-inset-right)); background: rgba(155,89,182,0.85); border: 2px solid rgba(200,150,255,0.9); color: #fff; padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer; z-index: 5; touch-action: manipulation; display: none; }
+
+  #joystick { position: fixed; left: calc(18px + env(safe-area-inset-left)); bottom: calc(18px + env(safe-area-inset-bottom)); width: 130px; height: 130px; border-radius: 50%; background: rgba(5,16,31,0.4); border: 2px solid rgba(100,150,220,0.3); display: none; touch-action: none; z-index: 5; }
+  #joystick.active { display: block; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin-left: -25px; margin-top: -25px; border-radius: 50%; background: rgba(200,220,255,0.7); box-shadow: 0 0 10px rgba(0,0,0,0.35); pointer-events: none; will-change: transform; }
+  #attackBtn { position: fixed; right: calc(18px + env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); width: 86px; height: 86px; border-radius: 50%; background: rgba(231,76,60,0.78); border: 2px solid rgba(255,255,255,0.4); color: #fff; font-weight: 700; font-size: 13px; display: none; align-items: center; justify-content: center; touch-action: none; z-index: 5; cursor: pointer; }
+  #attackBtn.active { display: flex; }
+  #attackBtn:active, #attackBtn.pressed { background: rgba(231,76,60,1); }
+  #skillBar { position: fixed; left: calc(18px + env(safe-area-inset-left)); bottom: calc(158px + env(safe-area-inset-bottom)); display: flex; gap: 8px; z-index: 5; }
+  .skillBtn { width: 54px; height: 54px; border-radius: 50%; background: rgba(120,120,120,0.6); border: 2px solid rgba(255,255,255,0.4); color: #fff; display: none; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; touch-action: none; position: relative; overflow: hidden; user-select: none; }
+  .skillBtn.show { display: flex; }
+  .skillBtn.hold-skill { border-style: dashed; border-width: 3px; }
+  .skillBtn .key { font-size: 15px; font-weight: 900; line-height: 1; }
+  .skillBtn .label { font-size: 8px; line-height: 1; margin-top: 2px; opacity: 0.85; text-align: center; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .skillBtn .cd-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; font-size: 15px; font-weight: 900; color: #fff; border-radius: 50%; }
+  .skillBtn.ready:active { transform: scale(0.92); }
+  #interactBtn { position: fixed; left: 50%; bottom: calc(130px + env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 10px 16px; border-radius: 22px; background: rgba(52,152,219,0.92); border: 2px solid rgba(255,255,255,0.5); color: #fff; font-weight: 700; font-size: 13px; display: none; z-index: 6; cursor: pointer; max-width: 90vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; touch-action: manipulation; }
+
+  #modal { position: fixed; inset: 0; background: rgba(5,16,31,0.9); display: none; z-index: 20; padding: 20px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #modal.open { display: block; }
+  .modal-inner { max-width: 520px; margin: 0 auto; background: #0a1f3f; border-radius: 14px; padding: 16px; position: relative; border: 1px solid #1e3a5f; }
+  #modalClose { position: absolute; top: 8px; right: 10px; width: 34px; height: 34px; border-radius: 50%; background: #1e3a5f; color: #fff; border: 0; font-size: 22px; line-height: 1; cursor: pointer; touch-action: manipulation; }
+  #modal h2 { margin: 0 0 10px; font-size: 20px; }
+  #modal h3 { margin: 14px 0 6px; font-size: 15px; color: #9cf; }
+  .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #1e3a5f; gap: 10px; flex-wrap: wrap; }
+  .item-row:last-child { border-bottom: 0; }
+  .buy-btn, .action-btn, .equip-btn { padding: 8px 12px; border-radius: 8px; border: 0; font-weight: 700; cursor: pointer; touch-action: manipulation; font-size: 13px; color: #111; background: #2ecc71; }
+  .buy-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+  .action-btn { background: #f39c12; }
+  .equip-btn { background: #3498db; color: #fff; }
+
+  #gameover { position: fixed; inset: 0; background: rgba(5,16,31,0.9); display: none; align-items: center; justify-content: center; flex-direction: column; gap: 14px; z-index: 30; padding: 24px; text-align: center; }
+  #gameover h1 { margin: 0; font-size: 32px; }
+  #restart { padding: 14px 26px; font-size: 17px; border: 0; border-radius: 10px; background: #2ecc71; color: #111; cursor: pointer; font-weight: 700; touch-action: manipulation; }
+
+  #toast { position: fixed; left: 50%; top: 12%; transform: translateX(-50%); background: rgba(5,16,31,0.9); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; z-index: 40; opacity: 0; transition: opacity 0.3s; pointer-events: none; max-width: 90vw; text-align: center; }
+
+  #bossAnnounce { position: fixed; top: 35%; left: 50%; transform: translate(-50%, -50%) scale(0.6); font-size: 44px; font-weight: 900; color: #c060ff; text-shadow: 0 0 15px #a020f0, 0 0 35px #a020f0, 0 0 70px #6a00cc, 3px 3px 0 #000; opacity: 0; pointer-events: none; z-index: 50; letter-spacing: 6px; text-align: center; transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); white-space: nowrap; }
+  #bossAnnounce.show { opacity: 1; transform: translate(-50%, -50%) scale(1); animation: bossPulse 0.7s ease-in-out infinite alternate; }
+  @keyframes bossPulse { from { text-shadow: 0 0 15px #a020f0, 0 0 35px #a020f0, 0 0 70px #6a00cc, 3px 3px 0 #000; } to { text-shadow: 0 0 25px #d060ff, 0 0 55px #a020f0, 0 0 100px #6a00cc, 3px 3px 0 #000; } }
+
+  #dialogueScreen { position: fixed; inset: 0; background: rgba(5,16,31,0.95); display: none; align-items: center; justify-content: center; z-index: 60; padding: 20px; }
+  .dialogue-box { background: linear-gradient(135deg, #0a1f3f, #0f2a4a); border: 2px solid #3498db; border-radius: 16px; padding: 24px; max-width: 520px; width: 100%; box-shadow: 0 0 40px rgba(52,152,219,0.4); }
+  .dialogue-title { font-size: 22px; font-weight: 900; color: #3498db; margin-bottom: 14px; text-align: center; }
+  .dialogue-text { font-size: 15px; line-height: 1.6; color: #d8e8ff; margin-bottom: 12px; white-space: pre-line; min-height: 60px; }
+  .dialogue-counter { text-align: center; font-size: 12px; color: #6a8fb5; font-weight: 600; margin-bottom: 12px; min-height: 16px; letter-spacing: 1px; }
+  .dialogue-btn { width: 100%; padding: 14px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; touch-action: manipulation; }
+  .dialogue-btn:active { transform: scale(0.98); }
+
+  #secondSeaEnd { position: fixed; inset: 0; background: radial-gradient(circle, #0a1f3f, #05101f); display: none; align-items: center; justify-content: center; flex-direction: column; z-index: 70; padding: 30px; text-align: center; }
+  #secondSeaEnd h1 { font-size: 72px; font-weight: 900; color: #fff; margin: 0 0 20px; letter-spacing: 8px; text-shadow: 0 0 30px #3498db; animation: endPulse 2s ease-in-out infinite alternate; }
+  @keyframes endPulse { from { text-shadow: 0 0 30px #3498db; } to { text-shadow: 0 0 60px #3498db, 0 0 100px #9b59b6; } }
+  #secondSeaEnd p { color: #6a8fb5; font-size: 16px; margin: 8px 0; max-width: 500px; }
+  #secondSeaEnd .end-btns { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; justify-content: center; }
+  #secondSeaEnd button { padding: 14px 26px; background: #3498db; color: #fff; border: 0; border-radius: 10px; font-weight: 700; font-size: 16px; cursor: pointer; }
+
+  @media (max-width: 420px) {
+    #hud { font-size: 12px; min-width: 180px; }
+    #joystick { width: 116px; height: 116px; }
+    #knob { width: 44px; height: 44px; margin-left: -22px; margin-top: -22px; }
+    #attackBtn { width: 74px; height: 74px; font-size: 12px; }
+    .skillBtn { width: 48px; height: 48px; }
+    .skillBtn .key { font-size: 13px; }
+    #skillBar { bottom: calc(145px + env(safe-area-inset-bottom)); }
+    .menu-content h1 { font-size: 26px; }
+    #bossAnnounce { font-size: 32px; letter-spacing: 4px; }
+    #secondSeaEnd h1 { font-size: 48px; }
+    .dialogue-title { font-size: 19px; }
+    .dialogue-text { font-size: 14px; }
+    #dragonVariantBtn { top: calc(8px + env(safe-area-inset-top) + 300px); }
+    #instinctBtn { top: calc(8px + env(safe-area-inset-top) + 340px); }
+  }
+</style>
+</head>
+<body>
+
+<div id="loadingScreen">
+  <div class="loading-content">
+    <div class="game-logo">⚓ Blox-like Islands</div>
+    <div class="loading-bar"><div id="loadingFill"></div></div>
+    <div id="loadingText">Подготовка...</div>
+    <div id="loadingError" style="display:none">
+      <p>Не удалось загрузить игру 😕</p>
+      <p id="errMessage" style="font-size:12px;color:#999;"></p>
+      <button onclick="location.reload()">🔄 Повторить</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div class="auth-container">
+    <h1>⚓ Blox-like Islands</h1>
+    <p class="auth-subtitle">Войди или создай аккаунт</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login">Вход</button>
+      <button class="auth-tab" data-tab="register">Регистрация</button>
+    </div>
+    <div class="auth-form" id="loginForm">
+      <input type="text" id="loginUser" placeholder="Ник" autocomplete="username" maxlength="20">
+      <input type="password" id="loginPass" placeholder="Пароль" autocomplete="current-password" maxlength="40">
+      <button id="loginBtn" class="auth-submit">Войти</button>
+      <div id="loginError" class="auth-error"></div>
+    </div>
+    <div class="auth-form" id="registerForm" style="display:none">
+      <input type="text" id="regUser" placeholder="Ник (мин. 3 символа)" autocomplete="username" maxlength="20">
+      <input type="password" id="regPass" placeholder="Пароль (мин. 4 символа)" autocomplete="new-password" maxlength="40">
+      <input type="password" id="regPass2" placeholder="Повтори пароль" autocomplete="new-password" maxlength="40">
+      <button id="regBtn" class="auth-submit">Создать аккаунт</button>
+      <div id="regError" class="auth-error"></div>
+    </div>
+    <div class="auth-note">Аккаунт и прогресс сохраняются в этом браузере</div>
+  </div>
+</div>
+
+<!-- START MENU with slots -->
+<div id="startMenu">
+  <div class="menu-content">
+    <h1>⚓ Blox-like Islands</h1>
+    <p class="subtitle">Выбери сохранение</p>
+    <div id="accountBar">
+      <div id="accountName">👤 -</div>
+      <button id="logoutBtn">🚪 Выйти</button>
+    </div>
+    <div id="slotsContainer"></div>
+    <div class="menu-footer">
+      <button id="howBtn">❓ Как играть</button>
+      <button id="importBtn">📤 Импорт файла</button>
+    </div>
+    <div id="howPanel" style="display:none">
+      <p><b>🖥 ПК:</b> WASD — движение, Space — атака, Z/X/C — скиллы, E — взаимодействие</p>
+      <p><b>📱 Телефон:</b> джойстик + кнопки скиллов</p>
+      <p><b>🏝 14 островов · 100 уровней · Тюрьма с 3 боссами</b></p>
+      <p><b>💾 4 слота сохранений · 📥 Экспорт/📤 Импорт JSON</b></p>
+      <p><b>🌀 Голубой слот = Второе море достигнуто</b></p>
+    </div>
+  </div>
+</div>
+
+<div id="hud">
+  <div><b>Уровень:</b> <span id="level">1</span></div>
+  <div><b>HP:</b> <span id="hpText">100/100</span></div>
+  <div class="bar"><div id="hpFill"></div></div>
+  <div id="shieldBar">
+    <div><b>🛡 Щит:</b> <span id="shieldText">0/0</span></div>
+    <div class="bar"><div id="shieldFill"></div></div>
+  </div>
+  <div id="transformBar">
+    <div><b>🐍 Трансформация:</b> <span id="transformText">0с</span></div>
+    <div class="bar"><div id="transformFill"></div></div>
+  </div>
+  <div id="instinctBar">
+    <div><b>👁 Инстинкт:</b> <span id="instinctText">0</span></div>
+    <div class="bar"><div id="instinctFill"></div></div>
+  </div>
+  <div><b>XP:</b> <span id="xpText">0/10</span></div>
+  <div class="bar"><div id="xpFill"></div></div>
+  <div><b>💰:</b> <span id="beli">0</span></div>
+  <div><b>📍:</b> <span id="island">Море</span></div>
+  <div id="regenStatus"></div>
+</div>
+
+<div id="topBtns">
+  <button class="topBtn" data-shop="fruit">🍎 Фрукты</button>
+  <button class="topBtn" data-shop="sword">⚔ Мечи</button>
+  <button class="topBtn" data-shop="gun">🔫 Ружья</button>
+  <button class="topBtn" data-shop="accessory">🎩 Аксессуары</button>
+  <button class="topBtn" id="invBtn">🎒 Инвентарь</button>
+  <button class="topBtn" id="menuBtn">📁 Меню</button>
+</div>
+
+<button id="dragonVariantBtn">🐉 Запад</button>
+<button id="instinctBtn">👁 Инстинкт</button>
+
+<div id="skillBar">
+  <div class="skillBtn" data-skill="0"><div class="key">Z</div><div class="label"></div><div class="cd-overlay"></div></div>
+  <div class="skillBtn" data-skill="1"><div class="key">X</div><div class="label"></div><div class="cd-overlay"></div></div>
+  <div class="skillBtn" data-skill="2"><div class="key">C</div><div class="label"></div><div class="cd-overlay"></div></div>
+</div>
+
+<div id="joystick"><div id="knob"></div></div>
+<button id="attackBtn">АТАКА</button>
+<button id="interactBtn"></button>
+
+<div id="bossAnnounce"></div>
+
+<div id="modal"><div class="modal-inner"><button id="modalClose">×</button><div id="modalBody"></div></div></div>
+<div id="gameover"><h1>Ты побеждён</h1><div>Белли: <span id="finalScore">0</span></div><button id="restart">Играть снова</button></div>
+<div id="toast"></div>
+
+<div id="dialogueScreen">
+  <div class="dialogue-box">
+    <div class="dialogue-title" id="dialogueTitle"></div>
+    <div class="dialogue-text" id="dialogueText"></div>
+    <div class="dialogue-counter" id="dialogueCounter"></div>
+    <button class="dialogue-btn" id="dialogueBtn">Далее ▶</button>
+  </div>
+</div>
+
+<div id="secondSeaEnd">
+  <h1>КОНЕЦ?</h1>
+  <p>Ты узнал правду о компании фейковых фруктов...</p>
+  <p>Но второе море ещё не создано.</p>
+  <p>Дон Фламинго и Адмирал Магмы ждут впереди.</p>
+  <p style="margin-top:30px;color:#00ccff;">✨ Сохранение стало голубым — Второе море достигнуто!</p>
+  <div class="end-btns">
+    <button onclick="window.__returnToMenu()">📁 В меню</button>
+    <button onclick="document.getElementById('secondSeaEnd').style.display='none'">🎮 Продолжить играть</button>
+  </div>
+</div>
+
+<script type="module">
+// ================= AUTH =================
+const ACCOUNTS_KEY = 'blox_accounts_v2';
+const SESSION_KEY = 'blox_session_v2';
+
+function hashPw(pw) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < pw.length; i++) { h ^= pw.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16);
+}
+function getAccounts() { try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '{}'); } catch { return {}; } }
+function saveAccounts(a) { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(a)); }
+function findAccountKey(username) {
+  const accounts = getAccounts();
+  const lower = (username || '').trim().toLowerCase();
+  for (const key of Object.keys(accounts)) if (key.toLowerCase() === lower) return key;
+  return null;
+}
+function tryRegister(username, password) {
+  username = (username || '').trim();
+  if (!username || !password) return { ok: false, err: 'Заполни все поля' };
+  if (username.length < 3) return { ok: false, err: 'Ник минимум 3 символа' };
+  if (password.length < 4) return { ok: false, err: 'Пароль минимум 4 символа' };
+  if (findAccountKey(username)) return { ok: false, err: 'Этот ник уже занят' };
+  try {
+    const accounts = getAccounts();
+    accounts[username] = { passwordHash: hashPw(password), createdAt: Date.now() };
+    saveAccounts(accounts);
+    return { ok: true, username };
+  } catch (e) { return { ok: false, err: 'Ошибка сохранения: ' + e.message }; }
+}
+function tryLogin(username, password) {
+  const key = findAccountKey(username);
+  if (!key) return { ok: false, err: 'Аккаунт не найден' };
+  const accounts = getAccounts();
+  if (accounts[key].passwordHash !== hashPw(password)) return { ok: false, err: 'Неверный пароль' };
+  return { ok: true, username: key };
+}
+function getSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { return null; } }
+function setSession(username) { localStorage.setItem(SESSION_KEY, JSON.stringify({ username })); }
+function clearSession() { localStorage.removeItem(SESSION_KEY); }
+
+// ================= UNIVERSAL SAVE API =================
+const SaveAPI = {
+  isDesktop: typeof window.electronAPI !== 'undefined' && window.electronAPI.isElectron,
+  async write(slot, data) {
+    if (this.isDesktop) return await window.electronAPI.saveWrite(slot, data);
+    try { localStorage.setItem('blox_save_' + slot, JSON.stringify(data)); return { ok: true }; }
+    catch (e) { return { ok: false, error: e.message }; }
+  },
+  async read(slot) {
+    if (this.isDesktop) return await window.electronAPI.saveRead(slot);
+    try {
+      const raw = localStorage.getItem('blox_save_' + slot);
+      return raw ? { ok: true, data: JSON.parse(raw) } : { ok: false };
+    } catch (e) { return { ok: false, error: e.message }; }
+  },
+  async delete(slot) {
+    if (this.isDesktop) return await window.electronAPI.saveDelete(slot);
+    localStorage.removeItem('blox_save_' + slot); return { ok: true };
+  },
+  async export(slot, data) {
+    if (this.isDesktop) return await window.electronAPI.saveExport(slot, data);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = slot + '.json'; a.click();
+    return { ok: true };
+  },
+  async import() {
+    if (this.isDesktop) return await window.electronAPI.saveImport();
+    return new Promise(resolve => {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = '.json';
+      input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return resolve({ ok: false });
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try { resolve({ ok: true, data: JSON.parse(ev.target.result), filename: file.name.replace('.json','') }); }
+          catch { resolve({ ok: false, error: 'invalid json' }); }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    });
+  }
+};
+
+const SLOT_IDS = ['slot1', 'slot2', 'slot3', 'slot4'];
+let currentUser = null;
+
+function userSlotKey(slotId) { return currentUser + '_' + slotId; }
+
+// ================= LOADING HELPERS =================
+const loadingScreen = document.getElementById('loadingScreen');
+const loadingFill = document.getElementById('loadingFill');
+const loadingText = document.getElementById('loadingText');
+const loadingError = document.getElementById('loadingError');
+const errMessage = document.getElementById('errMessage');
+const startMenu = document.getElementById('startMenu');
+const authScreen = document.getElementById('authScreen');
+
+function setProgress(pct, text) { loadingFill.style.width = Math.min(100, pct) + '%'; if (text) loadingText.textContent = text; }
+function showError(msg) { loadingText.style.display = 'none'; loadingFill.parentElement.style.display = 'none'; loadingError.style.display = 'block'; errMessage.textContent = msg || 'Проверьте интернет.'; }
+function checkWebGL() { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } }
+
+const CDN_URLS = [
+  'https://unpkg.com/three@0.160.0/build/three.module.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
+  'https://esm.sh/three@0.160.0',
+];
+async function loadThree() {
+  let lastErr = null;
+  for (let i = 0; i < CDN_URLS.length; i++) {
+    try {
+      setProgress(10 + i * 15, `Загрузка движка (${i + 1}/${CDN_URLS.length})...`);
+      const mod = await Promise.race([import(CDN_URLS[i]), new Promise((_, rej) => setTimeout(() => rej(new Error('Таймаут')), 12000))]);
+      return mod;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('Ни один CDN не ответил');
+}
+
+let THREE = null;
+let gameStarted = false;
+
+// ================= GAME DATA =================
+const FRUIT_SKILLS = {
+  'Кило': [{ key: 'Z', name: 'Тяж. удар', cd: 3, damage: 40, range: 4, type: 'melee' }, { key: 'X', name: 'Прыжок', cd: 8, damage: 80, range: 6, type: 'melee' }],
+  'Огонь': [{ key: 'Z', name: 'Огн. кулак', cd: 2, damage: 50, range: 4, type: 'melee', burn: { time: 5, dps: 10 } }, { key: 'X', name: 'Огн. шар', cd: 5, damage: 80, range: 25, type: 'projectile', burn: { time: 5, dps: 15 } }, { key: 'C', name: 'Огн. волна', cd: 10, damage: 120, range: 6, type: 'melee', burn: { time: 5, dps: 20 } }],
+  'Лёд': [{ key: 'Z', name: 'Ледяной кулак', cd: 2, damage: 200, range: 5, type: 'melee' }, { key: 'X', name: 'Ледяное копьё', cd: 5, damage: 400, range: 20, type: 'projectile' }, { key: 'C', name: 'Ледяной взрыв', cd: 10, damage: 600, range: 8, type: 'melee' }],
+  'Дрожь': [{ key: 'Z', name: 'Удар. волна', cd: 4, damage: 100, range: 6, type: 'melee' }, { key: 'X', name: 'Землетряс.', cd: 10, damage: 200, range: 10, type: 'melee' }],
+  'Магма': [{ key: 'Z', name: 'Магмовый кулак', cd: 3, damage: 400, range: 5, type: 'melee', burn: { time: 4, dps: 60 } }, { key: 'X', name: 'Пласт магмы', cd: 7, damage: 700, range: 10, type: 'melee', burn: { time: 5, dps: 100 } }, { key: 'C', name: 'Трансформация', cd: 30, damage: 0, range: 0, type: 'transform' }],
+  'Боль': [{ key: 'Z', name: 'Болевой шок', cd: 5, damage: 300, range: 5, type: 'melee' }, { key: 'X', name: 'Агония', cd: 12, damage: 500, range: 8, type: 'melee' }],
+  'Резина': [{ key: 'Z', name: 'Стретч', cd: 5, damage: 200, range: 30, type: 'pull' }, { key: 'X', name: 'Гатлинг', cd: 1, damage: 30, range: 20, type: 'gatling', hold: true }, { key: 'C', name: 'Трансф.', cd: 30, damage: 0, range: 0, type: 'transform' }],
+  'Яд': [{ key: 'Z', name: 'Ядовит. удар', cd: 3, damage: 200, range: 5, type: 'melee', poison: { time: 6, dps: 50 } }, { key: 'X', name: 'Дых. гидры', cd: 6, damage: 350, range: 25, type: 'projectile', poison: { time: 8, dps: 90 } }, { key: 'C', name: 'Трансформ.', cd: 30, damage: 0, range: 0, type: 'transform' }],
+  'Паутина': [{ key: 'Z', name: 'Паутинный хлыст', cd: 3, damage: 500, range: 15, type: 'pull' }, { key: 'X', name: 'Сеть', cd: 7, damage: 800, range: 8, type: 'melee' }, { key: 'C', name: 'Кокон', cd: 20, damage: 0, range: 0, type: 'transform' }],
+};
+const DRAGON_SKILLS = {
+  west: [{ key: 'Z', name: 'Огн. дых.', cd: 4, damage: 400, range: 25, type: 'projectile', burn: { time: 4, dps: 80 } }, { key: 'X', name: 'Хвост', cd: 8, damage: 700, range: 10, type: 'melee' }, { key: 'C', name: 'Трансф.', cd: 30, damage: 0, range: 0, type: 'transform' }],
+  east: [{ key: 'Z', name: 'Молния', cd: 3, damage: 300, range: 30, type: 'projectile', poison: { time: 3, dps: 70 } }, { key: 'X', name: 'Вихрь', cd: 6, damage: 550, range: 12, type: 'melee' }, { key: 'C', name: 'Трансф.', cd: 30, damage: 0, range: 0, type: 'transform' }],
+};
+const FRUIT_COLORS = { 'Кило': '150,150,150', 'Огонь': '255,100,30', 'Лёд': '100,200,255', 'Дрожь': '200,220,255', 'Магма': '255,60,0', 'Боль': '150,50,200', 'Дракон': '255,180,0', 'Резина': '255,126,185', 'Яд': '160,32,240', 'Паутина': '255,105,180' };
+
+function createHealthBar(isBoss) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128; canvas.height = 24;
+  const ctx = canvas.getContext('2d');
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.renderOrder = 999;
+  sprite.scale.set(isBoss ? 4.5 : 2.2, isBoss ? 0.7 : 0.35, 1);
+  sprite.position.y = isBoss ? 2.6 : 1.4;
+  return { canvas, ctx, tex, sprite };
+}
+function drawHealthBar(hb, hp, maxHp, burnType, customColor) {
+  const { ctx, canvas, tex } = hb;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillRect(0, 0, W, H);
+  const pct = Math.max(0, Math.min(1, hp / maxHp));
+  let fill;
+  if (burnType === 'fire') fill = '#ff6600';
+  else if (burnType === 'poison') fill = '#a020f0';
+  else if (customColor) fill = customColor;
+  else if (pct > 0.6) fill = '#2ecc71';
+  else if (pct > 0.3) fill = '#f1c40f';
+  else fill = '#e74c3c';
+  ctx.fillStyle = fill; ctx.fillRect(3, 3, (W - 6) * pct, H - 6);
+  if (burnType) { ctx.fillStyle = burnType === 'fire' ? 'rgba(255,200,0,0.5)' : 'rgba(220,150,255,0.55)'; ctx.fillRect(3, 3, (W - 6) * pct, 3); }
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, W - 2, H - 2);
+  tex.needsUpdate = true;
+}
+
+// ================= GAME SETUP =================
+function setupGame(saveData) {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a1f3f);
+  scene.fog = new THREE.Fog(0x0a1f3f, 70, 220);
+  const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.domElement.style.position = 'fixed';
+  renderer.domElement.style.inset = '0';
+  renderer.domElement.style.zIndex = '0';
+  document.body.appendChild(renderer.domElement);
+
+  scene.add(new THREE.HemisphereLight(0xaaccff, 0x223344, 1.2));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.3);
+  sun.position.set(30, 50, 20); sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.left = -80; sun.shadow.camera.right = 80;
+  sun.shadow.camera.top = 80; sun.shadow.camera.bottom = -80;
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 250;
+  scene.add(sun);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshStandardMaterial({ color: 0x143a5f, roughness: 0.4, metalness: 0.3 }));
+  water.rotation.x = -Math.PI / 2; water.receiveShadow = true; scene.add(water);
+
+  const player = new THREE.Group();
+  const pBodyMat = new THREE.MeshStandardMaterial({ color: 0x2e86de });
+  const pHeadMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79 });
+  const pBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.2), pBodyMat);
+  pBody.position.y = 0.9; pBody.castShadow = true; player.add(pBody);
+  const pHead = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), pHeadMat);
+  pHead.position.y = 2.0; pHead.castShadow = true; player.add(pHead);
+  scene.add(player);
+
+  const poisonGroup = new THREE.Group();
+  for (let i = 0; i < 3; i++) {
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.3, 8), new THREE.MeshStandardMaterial({ color: 0x8b00ff, emissive: 0x6a00cc, emissiveIntensity: 0.9 }));
+    head.rotation.x = Math.PI / 2; head.position.set(-0.85 + i * 0.85, 2.95, 0); poisonGroup.add(head);
+  }
+  [-1, 1].forEach(side => {
+    const ac = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.1, 6), new THREE.MeshStandardMaterial({ color: 0x4a0a4a, emissive: 0x8b00ff, emissiveIntensity: 0.7 }));
+    ac.rotation.z = side * Math.PI / 2; ac.position.set(side * 1.05, 1.2, 0); poisonGroup.add(ac);
+  });
+  poisonGroup.visible = false; player.add(poisonGroup);
+
+  const steamGroup = new THREE.Group();
+  const steamParticles = [];
+  for (let i = 0; i < 12; i++) {
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45 }));
+    sphere.position.set((Math.random() - 0.5) * 1.6, 0.5 + Math.random() * 2.5, (Math.random() - 0.5) * 1.6);
+    steamGroup.add(sphere); steamParticles.push(sphere);
+  }
+  steamGroup.visible = false; player.add(steamGroup);
+
+  const westGroup = new THREE.Group();
+  [-1, 1].forEach(side => {
+    const wing = new THREE.Mesh(new THREE.ConeGeometry(0.8, 2.6, 4), new THREE.MeshStandardMaterial({ color: 0xcc3300, emissive: 0x882200, emissiveIntensity: 0.7 }));
+    wing.rotation.z = side * Math.PI / 3.2; wing.rotation.x = -0.4; wing.position.set(side * 1.3, 1.8, -0.4); westGroup.add(wing);
+  });
+  westGroup.visible = false; player.add(westGroup);
+
+  const eastGroup = new THREE.Group();
+  for (let i = 0; i < 7; i++) {
+    const seg = new THREE.Mesh(new THREE.SphereGeometry(0.42 - i * 0.045, 8, 8), new THREE.MeshStandardMaterial({ color: 0x00aacc, emissive: 0x006688, emissiveIntensity: 0.8 }));
+    seg.position.set(Math.sin(i * 0.8) * 0.3, 1.4 - i * 0.05, -(1.3 + i * 0.55)); eastGroup.add(seg);
+  }
+  eastGroup.visible = false; player.add(eastGroup);
+
+  const spiderGroup = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const leg = new THREE.Mesh(new THREE.ConeGeometry(0.15, 1.8, 5), new THREE.MeshStandardMaterial({ color: 0xff69b4, emissive: 0xff1493, emissiveIntensity: 0.8 }));
+    leg.rotation.z = (i < 2 ? 1 : -1) * Math.PI / 3; leg.position.set((i < 2 ? -1 : 1) * 1.1, 1.2, (i % 2 === 0 ? 0.3 : -0.3)); spiderGroup.add(leg);
+  }
+  spiderGroup.visible = false; player.add(spiderGroup);
+
+  const magmaGroup = new THREE.Group();
+  const magmaAura = new THREE.Mesh(new THREE.TorusGeometry(1.7, 0.12, 8, 32), new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.85 }));
+  magmaAura.rotation.x = Math.PI / 2; magmaAura.position.y = 0.15; magmaGroup.add(magmaAura);
+  for (let i = 0; i < 10; i++) {
+    const blob = new THREE.Mesh(new THREE.SphereGeometry(0.18 + Math.random() * 0.15, 6, 6), new THREE.MeshStandardMaterial({ color: 0xff5500, emissive: 0xff3300, emissiveIntensity: 0.9 }));
+    blob.position.set((Math.random() - 0.5) * 1.8, 0.3 + Math.random() * 2.2, (Math.random() - 0.5) * 1.8); magmaGroup.add(blob);
+  }
+  magmaGroup.visible = false; player.add(magmaGroup);
+
+  const FRUITS = [
+    { name: 'Кило', price: 2000, damage: 15, rarity: 'обычный' },
+    { name: 'Огонь', price: 100000, damage: 50, rarity: 'необычный' },
+    { name: 'Лёд', price: 500000, damage: 120, rarity: 'необычный' },
+    { name: 'Дрожь', price: 1000000, damage: 150, rarity: 'редкий' },
+    { name: 'Магма', price: 2000000, damage: 250, rarity: 'редкий' },
+    { name: 'Резина', price: 5000000, damage: 800, rarity: 'редкий' },
+    { name: 'Боль', price: 5000000, damage: 400, rarity: 'легендарный' },
+    { name: 'Паутина', price: 8000000, damage: 700, rarity: 'легендарный' },
+    { name: 'Дракон', price: 100000000, damage: 1500, rarity: 'мифический' },
+  ];
+  const SWORDS = [
+    { name: 'Катана', price: 5000, damage: 20 }, { name: 'Двойная катана', price: 50000, damage: 40 },
+    { name: 'Тройная катана', price: 200000, damage: 70 }, { name: 'Сади', price: 100000, damage: 60, legendary: true },
+    { name: 'Вандо', price: 500000, damage: 90, legendary: true }, { name: 'Шисую', price: 300000, damage: 80, legendary: true },
+  ];
+  const GUNS = [
+    { name: 'Мушкет', price: 5000, damage: 15 }, { name: 'Дробовик', price: 30000, damage: 35 },
+    { name: 'Двухстволка', price: 80000, damage: 55 }, { name: 'Дозорное ружьё', price: 200000, damage: 80 },
+  ];
+  const ACCESSORIES = [
+    { name: 'Шляпа пирата', price: 25000, hpBonus: 25, desc: '+25 HP' },
+    { name: 'Сапоги скорости', price: 50000, speedMult: 1.3, desc: '+30% скорости' },
+    { name: 'Амулет моряка', price: 75000, hpBonus: 50, shield: 25, desc: '+50 HP, +25 щита' },
+    { name: 'Плащ странника', price: 100000, damageMult: 1.10, shield: 100, desc: '+10% урона, 100 щита' },
+    { name: 'Броня адмирала', price: 500000, hpBonus: 500, shield: 300, damageMult: 1.25, desc: '+500 HP, 300 щита, +25% урона' },
+  ];
+  const ISLANDS = [
+    { name: 'Стартовый', x: 0, z: 0, r: 12, color: 0x1e4a2e, level: 1, enemyType: 'Солдат' },
+    { name: 'Бандитов', x: 40, z: 0, r: 12, color: 0x5a3a10, level: 8, enemyType: 'Бандит' },
+    { name: 'Пиратов', x: 0, z: 40, r: 12, color: 0x333344, level: 16, enemyType: 'Пират' },
+    { name: 'Морской', x: -40, z: 0, r: 12, color: 0x143a5f, level: 26, enemyType: 'Морпех' },
+    { name: 'Кладбище', x: 0, z: -40, r: 12, color: 0x1a1a22, level: 34, enemyType: 'Скелет' },
+    { name: 'Сабли', x: 40, z: -40, r: 12, color: 0x4a0000, level: 42, enemyType: 'Босс' },
+    { name: 'Гидры', x: -40, z: -40, r: 12, color: 0x1e0a2a, level: 52, enemyType: 'Ядовитый солдат', customReward: 10000000, bossQuest: true },
+    { name: 'Лесной', x: 80, z: 0, r: 12, color: 0x1e4a1e, level: 58, enemyType: 'Лесной страж' },
+    { name: 'Вулкан', x: 80, z: 40, r: 12, color: 0x4a1000, level: 65, enemyType: 'Огневик' },
+    { name: 'Ледяной', x: 80, z: -40, r: 12, color: 0x88aacc, level: 72, enemyType: 'Ледяной воин' },
+    { name: 'Скайпия', x: 120, z: 0, r: 12, color: 0x88bbee, level: 80, enemyType: 'Скайпиец', instinctNPC: true },
+    { name: 'Верхняя Скайпия', x: 120, z: 40, r: 12, color: 0xaaccff, level: 88, enemyType: 'Небесный воин' },
+    { name: 'Тюрьма', x: -80, z: 0, r: 22, color: 0x222222, level: 95, enemyType: 'Надзиратель', prison: true },
+    { name: 'Заснеженное Королевство', x: -80, z: 45, r: 15, color: 0xccddee, level: 100, enemyType: 'Снежный страж', snow: true },
+  ];
+  ISLANDS.forEach((isl, i) => {
+    isl.idx = i;
+    isl.quest = { target: isl.bossQuest ? 1 : 3 + Math.floor(i * 1.5), current: 0, reward: { beli: isl.customReward || 500 * (i + 1) * (i + 1), xp: 20 * (i + 1) }, accepted: false, completed: false };
+  });
+  const TEACHER_AREA = { x: 0, z: 300, r: 14 };
+
+  const state = {
+    level: 1, xp: 0, xpNext: 10, hp: 100, maxHp: 100, baseDamage: 10, speed: 6, beli: 500,
+    inventory: [], equippedFruit: null, equippedWeapon: null, equippedAccessory: null,
+    attackCooldown: 0, attackRange: 2.8, buttonsPressed: 0, saberUnlocked: false,
+    hasGuitarParts: false, ntkDone: false, guitarDone: false, skillCooldowns: [0, 0, 0],
+    regenTimer: 0, regenDelay: 5, regenRate: 0.03, shield: 0, maxShield: 0, shieldRegenTimer: 0,
+    cloakBought: false, transformed: false, transformTimer: 0, transformType: null,
+    dragonVariant: 'west', pulling: false, pullAnim: null, gatlingActive: false, gatlingTimer: 0, gatlingIndex: -1,
+    prisonQuests: { warden: { accepted: false, completed: false }, dangerousWarden: { accepted: false, completed: false }, doflamingo: { accepted: false, completed: false } },
+    gotKey: false, teacherSpoke: false, iceAdmiralBeaten: false, toldDetective: false,
+    instinctCharges: 0, maxInstinctCharges: 0, iceAdmiralSpawned: false, hasAura: false,
+    reachedSecondSea: false, currentSlot: null, playerName: '',
+  };
+
+  if (saveData) {
+    state.currentSlot = saveData.slot;
+    state.playerName = saveData.playerName || 'Игрок';
+    state.reachedSecondSea = saveData.reachedSecondSea || false;
+    const st = saveData.state;
+    if (st) {
+      if (st.level !== undefined) state.level = st.level;
+      if (st.xp !== undefined) state.xp = st.xp;
+      if (st.xpNext !== undefined) state.xpNext = st.xpNext;
+      if (st.hp !== undefined) state.hp = st.hp;
+      if (st.maxHp !== undefined) state.maxHp = st.maxHp;
+      if (st.baseDamage !== undefined) state.baseDamage = st.baseDamage;
+      if (st.beli !== undefined) state.beli = st.beli;
+      if (st.inventory) state.inventory = st.inventory.map(i => ({ ...i }));
+      if (st.equippedFruitName) state.equippedFruit = state.inventory.find(i => i.name === st.equippedFruitName) || null;
+      if (st.equippedWeaponName) state.equippedWeapon = state.inventory.find(i => i.name === st.equippedWeaponName) || null;
+      if (st.buttonsPressed !== undefined) state.buttonsPressed = st.buttonsPressed;
+      if (st.saberUnlocked !== undefined) state.saberUnlocked = st.saberUnlocked;
+      if (st.hasGuitarParts !== undefined) state.hasGuitarParts = st.hasGuitarParts;
+      if (st.ntkDone !== undefined) state.ntkDone = st.ntkDone;
+      if (st.guitarDone !== undefined) state.guitarDone = st.guitarDone;
+      if (st.cloakBought !== undefined) state.cloakBought = st.cloakBought;
+      if (st.dragonVariant) state.dragonVariant = st.dragonVariant;
+      if (st.gotKey !== undefined) state.gotKey = st.gotKey;
+      if (st.teacherSpoke !== undefined) state.teacherSpoke = st.teacherSpoke;
+      if (st.iceAdmiralBeaten !== undefined) state.iceAdmiralBeaten = st.iceAdmiralBeaten;
+      if (st.toldDetective !== undefined) state.toldDetective = st.toldDetective;
+      if (st.hasAura !== undefined) state.hasAura = st.hasAura;
+      if (st.maxInstinctCharges !== undefined) state.maxInstinctCharges = st.maxInstinctCharges;
+      if (st.iceAdmiralSpawned !== undefined) state.iceAdmiralSpawned = st.iceAdmiralSpawned;
+      if (st.prisonQuests) state.prisonQuests = JSON.parse(JSON.stringify(st.prisonQuests));
+    }
+    if (saveData.islands) {
+      saveData.islands.forEach((q, i) => { if (ISLANDS[i] && ISLANDS[i].quest) ISLANDS[i].quest = { ...ISLANDS[i].quest, ...q }; });
+    }
+    if (st && st.position) player.position.set(st.position.x, 0, st.position.z);
+  }
+  if (state.equippedAccessory) { state.maxShield = state.equippedAccessory.shield || 0; state.shield = state.maxShield; }
+  if (state.hasAura) { pBodyMat.color.setHex(0x111111); pHeadMat.color.setHex(0x222222); }
+
+  function fmt(n) { return String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function totalDamage() {
+    let d = state.baseDamage;
+    if (state.equippedFruit) d += state.equippedFruit.damage;
+    if (state.equippedWeapon) d += state.equippedWeapon.damage;
+    const accMult = state.equippedAccessory?.damageMult || 1;
+    const auraMult = state.hasAura ? 1.2 : 1;
+    let transformMult = 1;
+    if (state.transformed) {
+      if (state.transformType === 'poison' || state.transformType === 'dragon_west' || state.transformType === 'spider' || state.transformType === 'magma') transformMult = 2;
+      else if (state.transformType === 'dragon_east') transformMult = 1.8;
+    }
+    return Math.floor(d * accMult * auraMult * transformMult);
+  }
+  function takeDamage(amount) {
+    if (state.instinctCharges > 0) { state.instinctCharges--; toast(`👁 Инстинкт! ${state.instinctCharges}`); updateHUD(); return; }
+    let remaining = amount;
+    if (state.shield > 0) {
+      if (state.shield >= remaining) { state.shield -= remaining; remaining = 0; }
+      else { remaining -= state.shield; state.shield = 0; }
+    }
+    if (remaining > 0) { state.hp -= remaining; if (state.hp <= 0) { state.hp = 0; showGameOver(); } }
+    state.regenTimer = 0; state.shieldRegenTimer = 0; updateHUD();
+  }
+  function equipAccessory(item) {
+    const old = state.equippedAccessory;
+    if (old && old.hpBonus) state.maxHp -= old.hpBonus;
+    if (item && item.hpBonus) state.maxHp += item.hpBonus;
+    if (state.hp > state.maxHp) state.hp = state.maxHp;
+    state.equippedAccessory = item;
+    state.maxShield = item?.shield || 0;
+    state.shield = state.maxShield > 0 ? state.maxShield : 0;
+    updateHUD();
+  }
+
+  ISLANDS.forEach(isl => {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(isl.r, isl.r + 1.5, 2, 32), new THREE.MeshStandardMaterial({ color: isl.color, roughness: 1 }));
+    mesh.position.set(isl.x, 0.5, isl.z); mesh.receiveShadow = true; scene.add(mesh);
+  });
+  const teacherPlatform = new THREE.Mesh(new THREE.CylinderGeometry(TEACHER_AREA.r, TEACHER_AREA.r + 1, 2, 32), new THREE.MeshStandardMaterial({ color: 0x2a1a3a, roughness: 0.8, metalness: 0.3 }));
+  teacherPlatform.position.set(TEACHER_AREA.x, 0.5, TEACHER_AREA.z); scene.add(teacherPlatform);
+
+  const interactables = [];
+  function addNPC(islandIdx, lx, lz, color, type, data, prompt) {
+    const isl = islandIdx === 'teacher' ? TEACHER_AREA : ISLANDS[islandIdx];
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.55, 1.6, 8), new THREE.MeshStandardMaterial({ color }));
+    body.position.y = 0.8; body.castShadow = true; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 10), new THREE.MeshStandardMaterial({ color: 0xf5cd79 }));
+    head.position.y = 1.75; head.castShadow = true; g.add(head);
+    g.position.set(isl.x + lx, 0.9, isl.z + lz); scene.add(g);
+    interactables.push({ mesh: g, type, data, prompt, radius: 3 });
+  }
+  for (let i = 0; i < 12; i++) addNPC(i, 4, 4, 0xffaa00, 'quest', { islandIdx: i }, 'Квест: поговорить');
+  addNPC(6, 4, 4, 0xffaa00, 'quest', { islandIdx: 6 }, 'Квест Гидры');
+  [{ islandIdx: 1, lx: -4, lz: 3 }, { islandIdx: 2, lx: 4, lz: -4 }, { islandIdx: 3, lx: -5, lz: -3 }].forEach((b, i) => {
+    const isl = ISLANDS[b.islandIdx];
+    const btn = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 1), new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0x660000, emissiveIntensity: 0.6 }));
+    btn.position.set(isl.x + b.lx, 0.4, isl.z + b.lz); btn.castShadow = true; scene.add(btn);
+    interactables.push({ mesh: btn, type: 'saber_button', data: { id: i }, prompt: 'Нажать кнопку', radius: 2.5 });
+  });
+  addNPC(2, -5, 5, 0x9b59b6, 'ntk_npc', {}, 'НТК: объединить');
+  addNPC(2, -4, -4, 0xffd700, 'cloak_merchant', {}, 'Торговец плащом');
+  (() => {
+    const isl = ISLANDS[4];
+    const grave = new THREE.Group();
+    const tomb = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2, 0.4), new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.5, roughness: 0.3 }));
+    tomb.position.y = 1; tomb.castShadow = true; grave.add(tomb);
+    grave.position.set(isl.x - 4, 0.5, isl.z + 4); scene.add(grave);
+    interactables.push({ mesh: grave, type: 'grave', data: {}, prompt: 'Серебряная могила (5.000.000 Б)', radius: 3 });
+  })();
+  addNPC(4, 5, -5, 0x1abc9c, 'guitar_npc', {}, 'Гитара души: объединить');
+  addNPC(10, -5, -5, 0x00ccff, 'instinct_npc', {}, 'Купить Инстинкт (750.000 Б)');
+  addNPC(7, -5, -5, 0xffd700, 'level_max_npc', {}, '🎯 Макс. уровень (1.000.000.000 Б)');
+  addNPC(12, -10, -10, 0xffaa00, 'prison_quest', { boss: 'warden' }, 'Квест: Надзиратель');
+  addNPC(12, 10, -10, 0xffaa00, 'prison_quest', { boss: 'dangerousWarden' }, 'Квест: Опасный надзиратель');
+  addNPC(12, 0, 10, 0xffaa00, 'prison_quest', { boss: 'doflamingo' }, 'Квест: Дон Фламинго');
+  addNPC(12, 0, -15, 0xffffff, 'detective', {}, 'Детектив');
+  (() => {
+    const isl = ISLANDS[13];
+    const cave = new THREE.Group();
+    const arch = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.5, 3, 16, 1, true), new THREE.MeshStandardMaterial({ color: 0x333344, side: THREE.DoubleSide }));
+    arch.position.y = 1.5; cave.add(arch);
+    cave.position.set(isl.x + 8, 0.5, isl.z); scene.add(cave);
+    interactables.push({ mesh: cave, type: 'cave', data: {}, prompt: 'Войти в пещеру (нужен ключ)', radius: 3.5 });
+  })();
+  addNPC(13, 14, 2, 0x9933cc, 'teacher', {}, 'Учитель (Аура)');
+  const ghostGroup = new THREE.Group();
+  const gBody = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 12), new THREE.MeshStandardMaterial({ color: 0xaaccff, transparent: true, opacity: 0.5, emissive: 0x4466aa, emissiveIntensity: 0.5 }));
+  gBody.position.y = 1.3; gBody.scale.set(1, 1.4, 1); ghostGroup.add(gBody);
+  const gHead = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 12), new THREE.MeshStandardMaterial({ color: 0xddeeff, transparent: true, opacity: 0.7, emissive: 0x6688cc, emissiveIntensity: 0.5 }));
+  gHead.position.y = 2.2; ghostGroup.add(gHead);
+  ghostGroup.position.set(TEACHER_AREA.x, 0.5, TEACHER_AREA.z); scene.add(ghostGroup);
+  interactables.push({ mesh: ghostGroup, type: 'ghost', data: {}, prompt: 'Призрак', radius: 3 });
+  (() => {
+    const door = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(3, 5, 0.5), new THREE.MeshStandardMaterial({ color: 0x1a1a2a, metalness: 0.8, roughness: 0.2 }));
+    frame.position.y = 2.5; door.add(frame);
+    door.position.set(TEACHER_AREA.x, 0.5, TEACHER_AREA.z - 10); scene.add(door);
+    interactables.push({ mesh: door, type: 'ice_door', data: {}, prompt: 'Открыть дверь', radius: 3.5 });
+  })();
+  (() => {
+    const portal = new THREE.Group();
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.25, 12, 32), new THREE.MeshStandardMaterial({ color: 0x00ccff, emissive: 0x0088ff, emissiveIntensity: 1 }));
+    ring.rotation.x = Math.PI / 2; ring.position.y = 1.5; portal.add(ring);
+    const swirl = new THREE.Mesh(new THREE.CircleGeometry(1.4, 32), new THREE.MeshBasicMaterial({ color: 0x66ddff, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
+    swirl.rotation.x = Math.PI / 2; swirl.position.y = 1.5; portal.add(swirl);
+    portal.position.set(TEACHER_AREA.x + 6, 0.5, TEACHER_AREA.z + 5); scene.add(portal);
+    interactables.push({ mesh: portal, type: 'return_portal', data: {}, prompt: '🌀 Вернуться к пещере', radius: 3.5 });
+  })();
+
+  let enemies = [];
+  let projectiles = [];
+
+  function enemyColor(type) {
+    return { 'Солдат': 0xe74c3c, 'Бандит': 0xc0392b, 'Пират': 0x8e44ad, 'Морпех': 0x3498db, 'Скелет': 0xecf0f1, 'Босс': 0x111111, 'Ядовитый солдат': 0x6a1a8a, 'Лесной страж': 0x27ae60, 'Огневик': 0xe67e22, 'Ледяной воин': 0x88ccff, 'Скайпиец': 0x88bbee, 'Небесный воин': 0xaaccff, 'Надзиратель': 0x555555, 'Снежный страж': 0xccddee }[type] ?? 0xe74c3c;
+  }
+  function createEnemyObject(mesh, hp, maxHp, isBoss) {
+    const hb = createHealthBar(!!isBoss); mesh.add(hb.sprite);
+    const e = { mesh, hp, maxHp, hb, dead: false, attackCooldown: 0, burning: 0, burnDps: 0, burnType: null, originalEmissive: 0, lastHp: -1, lastBurnKey: '' };
+    drawHealthBar(hb, hp, maxHp, null); e.lastHp = hp; e.lastBurnKey = '';
+    return e;
+  }
+  function spawnEnemy(isl) {
+    if (isl.enemyType === 'Босс') return;
+    const hp = 20 + isl.level * 15 + state.level * 5;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1.4, 1), new THREE.MeshStandardMaterial({ color: enemyColor(isl.enemyType) }));
+    mesh.castShadow = true;
+    mesh.position.set(isl.x + (Math.random() - 0.5) * isl.r * 1.4, 0.7, isl.z + (Math.random() - 0.5) * isl.r * 1.4);
+    scene.add(mesh);
+    const e = createEnemyObject(mesh, hp, hp, false);
+    e.damage = 5 + isl.level * 1.5; e.speed = 2 + isl.level * 0.06; e.islandIdx = isl.idx;
+    enemies.push(e);
+  }
+  function spawnSaberBoss() {
+    const isl = ISLANDS[5];
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(3, 4, 3), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x660000, emissiveIntensity: 0.4 }));
+    mesh.castShadow = true; mesh.position.set(isl.x, 2, isl.z); scene.add(mesh);
+    const e = createEnemyObject(mesh, 5000, 5000, true);
+    e.damage = 40; e.speed = 2.5; e.islandIdx = 5; e.isBoss = true; e.originalEmissive = 0x660000;
+    enemies.push(e);
+  }
+  function spawnPoisonBoss() {
+    const isl = ISLANDS[6];
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(3.6, 4.8, 3.6), new THREE.MeshStandardMaterial({ color: 0x4a0a4a, emissive: 0x8b00ff, emissiveIntensity: 0.5 }));
+    mesh.castShadow = true; mesh.position.set(isl.x, 2.4, isl.z); scene.add(mesh);
+    const e = createEnemyObject(mesh, 15000, 15000, true);
+    e.damage = 60; e.speed = 2.2; e.islandIdx = 6; e.isBoss = true; e.isPoisonBoss = true; e.originalEmissive = 0x8b00ff; e.purpleBar = true;
+    enemies.push(e);
+  }
+  function spawnMagmaAdmiral() {
+    const isl = ISLANDS[8];
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(3.5, 5, 3.5), new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0xff2200, emissiveIntensity: 0.6 }));
+    mesh.castShadow = true; mesh.position.set(isl.x, 2.5, isl.z); scene.add(mesh);
+    const e = createEnemyObject(mesh, 100000, 100000, true);
+    e.damage = 150; e.speed = 2.2; e.islandIdx = 8; e.isBoss = true; e.isMagmaAdmiral = true; e.originalEmissive = 0xff2200; e.magmaBar = true;
+    enemies.push(e); showBossAnnouncement('АДМИРАЛ МАГМА');
+  }
+  function spawnPrisonBoss(type) {
+    const isl = ISLANDS[12];
+    let hp, size, color, pos, name, isPink = false;
+    if (type === 'warden') { hp = 20000; size = 3; color = 0x444444; pos = { x: isl.x - 12, z: isl.z - 12 }; name = 'НАДЗИРАТЕЛЬ'; }
+    else if (type === 'dangerousWarden') { hp = 40000; size = 3.5; color = 0x222222; pos = { x: isl.x + 12, z: isl.z - 12 }; name = 'ОПАСНЫЙ НАДЗИРАТЕЛЬ'; }
+    else if (type === 'doflamingo') { hp = 100000; size = 4; color = 0xff69b4; pos = { x: isl.x, z: isl.z + 12 }; name = 'ДОН ФЛАМИНГО'; isPink = true; }
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(size, size * 1.4, size), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.3 }));
+    mesh.castShadow = true; mesh.position.set(pos.x, size * 0.7, pos.z); scene.add(mesh);
+    const e = createEnemyObject(mesh, hp, hp, true);
+    e.damage = 80; e.speed = 2; e.islandIdx = 12; e.isBoss = true; e.prisonBossType = type; e.originalEmissive = color;
+    if (isPink) { e.purpleBar = true; e.pinkBar = true; }
+    enemies.push(e); showBossAnnouncement(name);
+  }
+  function spawnIceAdmiral() {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(3.5, 5, 3.5), new THREE.MeshStandardMaterial({ color: 0x88ccff, emissive: 0x3399ff, emissiveIntensity: 0.5 }));
+    mesh.castShadow = true; mesh.position.set(TEACHER_AREA.x, 2.5, TEACHER_AREA.z - 18); scene.add(mesh);
+    const e = createEnemyObject(mesh, 200000, 200000, true);
+    e.damage = 200; e.speed = 2; e.isBoss = true; e.isIceAdmiral = true; e.originalEmissive = 0x3399ff; e.islandIdx = -1;
+    enemies.push(e); showBossAnnouncement('АДМИРАЛ ЛЬДА');
+  }
+  function showBossAnnouncement(text) {
+    const el = document.getElementById('bossAnnounce'); el.textContent = text; el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+  }
+  function killEnemy(e) {
+    if (e.dead) return;
+    e.dead = true; scene.remove(e.mesh);
+    if (e.hb && e.hb.tex) e.hb.tex.dispose();
+    const drop = Math.floor(e.maxHp * e.maxHp * 0.3 + 100);
+    state.beli += drop; toast(`+${fmt(drop)} Белли`);
+    addXP(Math.max(5, Math.floor(e.maxHp / 8)));
+    if (e.isPoisonBoss) {
+      if (!state.inventory.some(i => i.name === 'Яд')) { state.inventory.push({ type: 'fruit', name: 'Яд', damage: 1200 }); toast('🎁 Миф. фрукт «Яд»!'); }
+    }
+    if (e.isMagmaAdmiral) {
+      const hasMagma = state.inventory.some(i => i.name === 'Магма');
+      if (Math.random() < (hasMagma ? 0.75 : 0.25)) { state.inventory.push({ type: 'fruit', name: 'Магма', damage: 250 }); toast('🌋 Фрукт «Магма»!'); }
+      else toast('💨 Магма не выпала...');
+    }
+    if (e.prisonBossType === 'warden' && state.prisonQuests.warden.accepted && !state.prisonQuests.warden.completed) { state.prisonQuests.warden.completed = true; toast('Квест «Надзиратель» готов!'); }
+    if (e.prisonBossType === 'dangerousWarden' && state.prisonQuests.dangerousWarden.accepted && !state.prisonQuests.dangerousWarden.completed) { state.prisonQuests.dangerousWarden.completed = true; toast('Квест «Опасный надзиратель» готов!'); }
+    if (e.prisonBossType === 'doflamingo' && state.prisonQuests.doflamingo.accepted && !state.prisonQuests.doflamingo.completed) { state.prisonQuests.doflamingo.completed = true; toast('Квест «Дон Фламинго» готов!'); }
+    if (e.isIceAdmiral) {
+      state.iceAdmiralBeaten = true;
+      showDialogue('Адмирал Льда',
+        `Эх я проиграл... Но я не плохой!\n\nТолько тебе срочно надо отправиться во второе море, потому что я сотрудничал с компанией фейковых фруктов, где был управляющим Дон Фламинго.\n\nНо я решил уничтожить это производство, и я рассказал о своём плане своему лучшему другу — Адмиралу Магмы. Он сказал что меня не подведёт! Эх, он всё рассказал Дону Фламинго.\n\nИ я вломился в комнату чтобы убить их раз и навсегда — только его фрукт позволяет быстро передвигаться с помощью нитей, и меня заперли здесь. Они говорили что отправятся во второе море, поэтому мне надо туда отпусти!\n\nНайди детектива в тюрьме — он всё знает.`,
+        () => {
+          const snowIsl = ISLANDS[13];
+          player.position.set(snowIsl.x + 8, 0, snowIsl.z + 3);
+          toast('🌀 Авто-возврат к пещере'); saveProgress();
+        }
+      );
+    }
+    saveProgress();
+    updateHUD();
+  }
+  function applyBurn(e, time, dps, type = 'fire') {
+    e.burning = Math.max(e.burning, time); e.burnDps = Math.max(e.burnDps, dps); e.burnType = type;
+    if (e.mesh.material) { e.mesh.material.emissive = new THREE.Color(type === 'poison' ? 0x8b00ff : 0xff5500); e.mesh.material.emissiveIntensity = 0.8; }
+  }
+  function addXP(amount) {
+    if (state.level >= 100) return;
+    state.xp += amount;
+    while (state.xp >= state.xpNext && state.level < 100) {
+      state.xp -= state.xpNext; state.level++;
+      state.xpNext = Math.floor(state.xpNext * 1.5);
+      state.maxHp += 20; state.hp = state.maxHp; state.baseDamage += 2;
+      toast(`Уровень ${state.level}!`);
+      if (state.level === 100) toast('🎉 МАКС!');
+    }
+    saveProgress();
+  }
+  function hasItem(name) { return state.inventory.some(i => i.name === name); }
+  function getCurrentSkills() {
+    if (!state.equippedFruit) return [];
+    if (state.equippedFruit.name === 'Дракон') return DRAGON_SKILLS[state.dragonVariant];
+    return FRUIT_SKILLS[state.equippedFruit.name] || [];
+  }
+  function skillDamage(skill) {
+    const base = skill.damage * (1 + state.level * 0.15);
+    const accMult = state.equippedAccessory?.damageMult || 1;
+    const auraMult = state.hasAura ? 1.2 : 1;
+    let transformMult = 1;
+    if (state.transformed) {
+      if (state.transformType === 'poison' || state.transformType === 'dragon_west' || state.transformType === 'spider' || state.transformType === 'magma') transformMult = 2;
+      else if (state.transformType === 'dragon_east') transformMult = 1.8;
+    }
+    return Math.floor(base * accMult * auraMult * transformMult);
+  }
+  function skillColorHex(name) { const rgb = FRUIT_COLORS[name] || '255,255,255'; const [r, g, b] = rgb.split(',').map(Number); return (r << 16) | (g << 8) | b; }
+  function setTransformVisual(type) {
+    poisonGroup.visible = false; steamGroup.visible = false; westGroup.visible = false; eastGroup.visible = false; spiderGroup.visible = false; magmaGroup.visible = false;
+    player.scale.set(1, 1, 1);
+    pBodyMat.color.setHex(state.hasAura ? 0x111111 : 0x2e86de);
+    pHeadMat.color.setHex(state.hasAura ? 0x222222 : 0xf5cd79);
+    pBodyMat.emissive.setHex(0x000000); pBodyMat.emissiveIntensity = 0;
+    if (type === 'poison') { poisonGroup.visible = true; player.scale.set(1.2, 1.2, 1.2); }
+    else if (type === 'rubber') { pBodyMat.color.setHex(0xff7eb9); pHeadMat.color.setHex(0xffa8d0); steamGroup.visible = true; player.scale.set(1.1, 1.1, 1.1); }
+    else if (type === 'dragon_west') { westGroup.visible = true; player.scale.set(1.3, 1.3, 1.3); pBodyMat.color.setHex(0xcc3300); }
+    else if (type === 'dragon_east') { eastGroup.visible = true; player.scale.set(1.25, 1.25, 1.25); pBodyMat.color.setHex(0x0088aa); }
+    else if (type === 'spider') { spiderGroup.visible = true; player.scale.set(1.15, 1.15, 1.15); pBodyMat.color.setHex(0xff69b4); }
+    else if (type === 'magma') { magmaGroup.visible = true; player.scale.set(1.15, 1.15, 1.15); pBodyMat.color.setHex(0xff3300); pHeadMat.color.setHex(0xff6600); pBodyMat.emissive.setHex(0xff2200); pBodyMat.emissiveIntensity = 0.6; }
+  }
+  function activateTransform(type) {
+    state.transformed = true; state.transformType = type; state.transformTimer = 15;
+    setTransformVisual(type);
+    const names = { poison: 'ГИДРЫ', rubber: 'РЕЗИНЫ', dragon_west: 'ЗАП. ДРАКОНА', dragon_east: 'ВОСТ. ДРАКОНА', spider: 'ПАУТИНЫ', magma: 'МАГМЫ' };
+    toast(`🐍 ТРАНСФОРМАЦИЯ ${names[type] || ''}!`); updateHUD();
+  }
+  function deactivateTransform() { state.transformed = false; state.transformType = null; state.transformTimer = 0; setTransformVisual(null); updateHUD(); }
+  function castTransformByFruit() {
+    if (state.equippedFruit?.name === 'Яд') activateTransform('poison');
+    else if (state.equippedFruit?.name === 'Резина') activateTransform('rubber');
+    else if (state.equippedFruit?.name === 'Паутина') activateTransform('spider');
+    else if (state.equippedFruit?.name === 'Магма') activateTransform('magma');
+    else if (state.equippedFruit?.name === 'Дракон') activateTransform(state.dragonVariant === 'west' ? 'dragon_west' : 'dragon_east');
+  }
+  function switchDragonVariant() {
+    if (!state.equippedFruit || state.equippedFruit.name !== 'Дракон') return;
+    state.dragonVariant = state.dragonVariant === 'west' ? 'east' : 'west';
+    const btn = document.getElementById('dragonVariantBtn');
+    btn.textContent = state.dragonVariant === 'west' ? '🐉 Запад' : '🐉 Восток';
+    if (state.transformed && (state.transformType === 'dragon_west' || state.transformType === 'dragon_east')) {
+      state.transformType = state.dragonVariant === 'west' ? 'dragon_west' : 'dragon_east';
+      setTransformVisual(state.transformType);
+    }
+    updateSkillUI();
+  }
+  function castPull(skill) {
+    let target = null, bestDist = skill.range;
+    for (const e of enemies) { if (e.dead) continue; const d = player.position.distanceTo(e.mesh.position); if (d < bestDist) { bestDist = d; target = e; } }
+    if (!target) { toast('Нет цели'); return false; }
+    const color = state.equippedFruit?.name === 'Паутина' ? 0xff69b4 : 0xff7eb9;
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 1, 8), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5 }));
+    scene.add(arm);
+    state.pullAnim = { start: player.position.clone(), end: target.mesh.position.clone(), duration: 0.35 + bestDist * 0.02, elapsed: 0, arm, target, skill };
+    state.pulling = true; return true;
+  }
+  function updatePull(dt) {
+    if (!state.pullAnim) return;
+    if (state.pullAnim.target.dead) { scene.remove(state.pullAnim.arm); state.pullAnim = null; state.pulling = false; return; }
+    state.pullAnim.elapsed += dt;
+    const t = Math.min(1, state.pullAnim.elapsed / state.pullAnim.duration);
+    player.position.lerpVectors(state.pullAnim.start, state.pullAnim.end, t);
+    const from = new THREE.Vector3(player.position.x, 1.2, player.position.z);
+    const to = state.pullAnim.target.mesh.position.clone(); to.y = 0.7;
+    const dir = new THREE.Vector3().subVectors(to, from); const len = dir.length();
+    if (len > 0.01) {
+      state.pullAnim.arm.position.copy(from).add(dir.clone().multiplyScalar(0.5));
+      state.pullAnim.arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+      state.pullAnim.arm.scale.set(1, len, 1);
+    }
+    if (t >= 1) {
+      state.pullAnim.target.hp -= skillDamage(state.pullAnim.skill);
+      if (state.pullAnim.target.hp <= 0) killEnemy(state.pullAnim.target);
+      scene.remove(state.pullAnim.arm); state.pullAnim = null; state.pulling = false;
+    }
+  }
+  function startGatling(i) {
+    if (!gameStarted || state.hp <= 0) return;
+    const skills = getCurrentSkills(); const skill = skills[i];
+    if (!skill || !skill.hold) return;
+    if (state.gatlingActive && state.gatlingIndex === i) return;
+    state.gatlingActive = true; state.gatlingIndex = i; state.gatlingTimer = 0;
+  }
+  function stopGatling() { state.gatlingActive = false; state.gatlingIndex = -1; }
+  function fireGatlingPunch(skill) {
+    let target = null, bestDist = skill.range;
+    for (const e of enemies) { if (e.dead) continue; const d = player.position.distanceTo(e.mesh.position); if (d < bestDist) { bestDist = d; target = e; } }
+    if (!target) return;
+    target.hp -= Math.floor(skillDamage(skill) * 0.35);
+    if (target.hp <= 0) killEnemy(target);
+    const from = new THREE.Vector3(player.position.x, 1.2, player.position.z);
+    const to = target.mesh.position.clone(); to.y = 0.7;
+    const dir = new THREE.Vector3().subVectors(to, from); const len = dir.length();
+    const line = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1, 4), new THREE.MeshBasicMaterial({ color: 0xff7eb9, transparent: true, opacity: 0.85 }));
+    line.position.copy(from).add(dir.clone().multiplyScalar(0.5));
+    line.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    line.scale.set(1, len, 1); scene.add(line);
+    setTimeout(() => { scene.remove(line); line.geometry.dispose(); line.material.dispose(); }, 90);
+  }
+  function castSkill(i) {
+    if (!gameStarted || state.hp <= 0) return;
+    const skills = getCurrentSkills();
+    if (!skills.length) { toast('Купите фрукт'); return; }
+    const skill = skills[i];
+    if (!skill) return;
+    if (state.skillCooldowns[i] > 0) return;
+    let cd = skill.cd;
+    if (state.transformed && state.transformType === 'rubber') cd *= 0.4;
+    if (skill.type === 'transform') {
+      if (state.transformed) { toast('Уже трансформирован'); return; }
+      state.skillCooldowns[i] = cd; castTransformByFruit(); return;
+    }
+    if (skill.type === 'pull') { if (castPull(skill)) state.skillCooldowns[i] = cd; return; }
+    if (skill.type === 'gatling') return;
+    state.skillCooldowns[i] = cd;
+    const color = state.equippedFruit ? skillColorHex(state.equippedFruit.name) : 0xffffff;
+    if (skill.type === 'melee') {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.5, skill.range, 32), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.85 }));
+      ring.rotation.x = -Math.PI / 2; ring.position.copy(player.position); ring.position.y = 0.1;
+      scene.add(ring);
+      setTimeout(() => { scene.remove(ring); ring.geometry.dispose(); ring.material.dispose(); }, 350);
+      for (const e of enemies) {
+        if (e.dead) continue;
+        if (player.position.distanceTo(e.mesh.position) <= skill.range + 0.8) {
+          e.hp -= skillDamage(skill);
+          if (skill.burn) applyBurn(e, skill.burn.time, skill.burn.dps, 'fire');
+          if (skill.poison) applyBurn(e, skill.poison.time, skill.poison.dps, 'poison');
+          if (e.hp <= 0) killEnemy(e);
+        }
+      }
+    } else if (skill.type === 'projectile') {
+      let target = null, bestDist = Infinity;
+      for (const e of enemies) { if (e.dead) continue; const d = player.position.distanceTo(e.mesh.position); if (d < bestDist) { bestDist = d; target = e; } }
+      if (!target) { toast('Нет цели'); state.skillCooldowns[i] = 0; return; }
+      const start = player.position.clone(); start.y = 1.2;
+      const dir = new THREE.Vector3().subVectors(target.mesh.position, start).normalize();
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 12), new THREE.MeshBasicMaterial({ color }));
+      ball.position.copy(start); scene.add(ball);
+      projectiles.push({ mesh: ball, dir, speed: 30, damage: skillDamage(skill), burn: skill.burn, poison: skill.poison, life: 3 });
+    }
+  }
+  function updateProjectiles(dt) {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const p = projectiles[i]; p.life -= dt;
+      p.mesh.position.addScaledVector(p.dir, p.speed * dt);
+      let hit = false;
+      for (const e of enemies) {
+        if (e.dead) continue;
+        const hitRadius = p.isBullet ? 1.0 : 1.4;
+        if (p.mesh.position.distanceTo(e.mesh.position) < hitRadius) {
+          e.hp -= p.damage;
+          if (p.burn) applyBurn(e, p.burn.time, p.burn.dps, 'fire');
+          if (p.poison) applyBurn(e, p.poison.time, p.poison.dps, 'poison');
+          if (e.hp <= 0) killEnemy(e);
+          hit = true; break;
+        }
+      }
+      if (hit || p.life <= 0) { scene.remove(p.mesh); p.mesh.geometry.dispose(); p.mesh.material.dispose(); projectiles.splice(i, 1); }
+    }
+  }
+
+  let dialogueCallback = null;
+  let dialoguePages = [];
+  let dialoguePageIdx = 0;
+  function splitDialogueIntoPages(text, isMobile) {
+    if (!isMobile) return [text];
+    const paragraphs = text.split(/\n\n/);
+    const pages = [];
+    for (const para of paragraphs) {
+      const sentences = para.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+      let currentPage = '';
+      for (const sentence of sentences) {
+        if (!currentPage) currentPage = sentence;
+        else if ((currentPage + ' ' + sentence).length <= 150) currentPage += ' ' + sentence;
+        else { pages.push(currentPage); currentPage = sentence; }
+      }
+      if (currentPage) pages.push(currentPage);
+    }
+    return pages.length > 0 ? pages : [text];
+  }
+  function updateDialoguePage() {
+    const textEl = document.getElementById('dialogueText'); const btn = document.getElementById('dialogueBtn'); const counter = document.getElementById('dialogueCounter');
+    textEl.textContent = dialoguePages[dialoguePageIdx];
+    if (dialoguePages.length > 1) counter.textContent = `📖 ${dialoguePageIdx + 1} / ${dialoguePages.length}`;
+    else counter.textContent = '';
+    const isLast = dialoguePageIdx >= dialoguePages.length - 1;
+    btn.textContent = isLast ? (dialogueCallback ? 'Продолжить' : 'Закрыть') : 'Далее ▶';
+  }
+  function showDialogue(title, text, cb) {
+    const isMobile = innerWidth < 768 || matchMedia('(pointer: coarse)').matches;
+    dialoguePages = splitDialogueIntoPages(text, isMobile); dialoguePageIdx = 0; dialogueCallback = cb;
+    document.getElementById('dialogueTitle').textContent = title;
+    document.getElementById('dialogueScreen').style.display = 'flex';
+    updateDialoguePage();
+  }
+  document.getElementById('dialogueBtn').addEventListener('click', () => {
+    const isLast = dialoguePageIdx >= dialoguePages.length - 1;
+    if (!isLast) { dialoguePageIdx++; updateDialoguePage(); return; }
+    document.getElementById('dialogueScreen').style.display = 'none';
+    const cb = dialogueCallback; dialogueCallback = null; if (cb) cb();
+  });
+
+  const keys = {};
+  addEventListener('keydown', (e) => {
+    keys[e.code] = true;
+    if (e.code === 'Space') { e.preventDefault(); attack(); }
+    if (e.code === 'KeyE') doInteract();
+    if (e.code === 'Escape') closeModal();
+    if (e.code === 'KeyZ') { e.preventDefault(); castSkill(0); }
+    if (e.code === 'KeyX') { e.preventDefault(); const s = getCurrentSkills(); if (s[1]?.hold) startGatling(1); else castSkill(1); }
+    if (e.code === 'KeyC') { e.preventDefault(); castSkill(2); }
+  });
+  addEventListener('keyup', (e) => { keys[e.code] = false; if (e.code === 'KeyX') { const s = getCurrentSkills(); if (s[1]?.hold) stopGatling(); } });
+
+  const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const joystickEl = document.getElementById('joystick'); const knobEl = document.getElementById('knob');
+  const attackBtn = document.getElementById('attackBtn'); const interactBtn = document.getElementById('interactBtn');
+  const skillBtns = document.querySelectorAll('.skillBtn');
+  if (isTouch) { joystickEl.classList.add('active'); attackBtn.classList.add('active'); }
+  const joyVec = { x: 0, y: 0 }; let joyTouchId = null; const JOY_DEAD = 8;
+  function joyUpdate(t) {
+    const r = joystickEl.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let dx = t.clientX - cx, dy = t.clientY - cy;
+    const maxR = r.width / 2 - 25; const len = Math.hypot(dx, dy);
+    if (len > maxR) { dx = dx / len * maxR; dy = dy / len * maxR; }
+    knobEl.style.transform = `translate(${dx}px, ${dy}px)`;
+    if (Math.hypot(dx, dy) < JOY_DEAD) { joyVec.x = 0; joyVec.y = 0; } else { joyVec.x = dx / maxR; joyVec.y = dy / maxR; }
+  }
+  function joyReset() { joyTouchId = null; joyVec.x = joyVec.y = 0; knobEl.style.transform = 'translate(0,0)'; }
+  joystickEl.addEventListener('touchstart', (e) => { if (joyTouchId !== null) return; const t = e.changedTouches[0]; joyTouchId = t.identifier; joyUpdate(t); e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (joyTouchId === null) return; for (const t of e.changedTouches) if (t.identifier === joyTouchId) { joyUpdate(t); e.preventDefault(); break; } }, { passive: false });
+  function onTouchEnd(e) { if (joyTouchId === null) return; for (const t of e.changedTouches) if (t.identifier === joyTouchId) { joyReset(); e.preventDefault(); break; } }
+  document.addEventListener('touchend', onTouchEnd, { passive: false });
+  document.addEventListener('touchcancel', onTouchEnd, { passive: false });
+  attackBtn.addEventListener('touchstart', (e) => { e.preventDefault(); attackBtn.classList.add('pressed'); attack(); }, { passive: false });
+  attackBtn.addEventListener('touchend', () => attackBtn.classList.remove('pressed'));
+  interactBtn.addEventListener('touchstart', (e) => { e.preventDefault(); doInteract(); }, { passive: false });
+  interactBtn.addEventListener('click', (e) => { e.preventDefault(); doInteract(); });
+  skillBtns.forEach(btn => {
+    const i = parseInt(btn.dataset.skill);
+    btn.addEventListener('pointerdown', (e) => { e.preventDefault(); const s = getCurrentSkills(); if (s[i]?.hold) startGatling(i); else castSkill(i); });
+    btn.addEventListener('pointerup', (e) => { e.preventDefault(); const s = getCurrentSkills(); if (s[i]?.hold) stopGatling(); });
+    btn.addEventListener('pointercancel', () => stopGatling());
+    btn.addEventListener('pointerleave', () => stopGatling());
+  });
+  document.getElementById('dragonVariantBtn').addEventListener('click', switchDragonVariant);
+  document.getElementById('instinctBtn').addEventListener('click', () => {
+    if (state.instinctCharges > 0) { toast('Инстинкт уже активен'); return; }
+    if (state.maxInstinctCharges <= 0) { toast('Купите Инстинкт'); return; }
+    state.instinctCharges = state.maxInstinctCharges;
+    toast(`👁 Инстинкт! ${state.instinctCharges}`); updateHUD();
+  });
+  document.addEventListener('contextmenu', e => e.preventDefault());
+
+  function attack() {
+    if (state.hp <= 0 || !gameStarted) return;
+    if (state.attackCooldown > 0) return;
+    const isGun = state.equippedWeapon?.type === 'gun';
+    state.attackCooldown = isGun ? 0.6 : ((state.transformed && state.transformType === 'rubber') ? 0.15 : 0.35);
+    const dmg = totalDamage();
+    if (isGun) {
+      let target = null, bestDist = 30;
+      for (const e of enemies) { if (e.dead) continue; const d = player.position.distanceTo(e.mesh.position); if (d < bestDist) { bestDist = d; target = e; } }
+      const start = player.position.clone(); start.y = 1.2;
+      let dir;
+      if (target) { dir = new THREE.Vector3().subVectors(target.mesh.position, start); dir.y = 0; dir.normalize(); }
+      else { dir = new THREE.Vector3(Math.sin(player.rotation.y), 0, Math.cos(player.rotation.y)); }
+      const bullet = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffdd44 }));
+      bullet.position.copy(start); scene.add(bullet);
+      projectiles.push({ mesh: bullet, dir, speed: 50, damage: dmg, life: 2, isBullet: true });
+      const flash = new THREE.Mesh(new THREE.SphereGeometry(0.4, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.9 }));
+      flash.position.copy(start); scene.add(flash);
+      setTimeout(() => { scene.remove(flash); flash.geometry.dispose(); flash.material.dispose(); }, 100);
+      return;
+    }
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.5, state.attackRange, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.6 }));
+    ring.rotation.x = -Math.PI / 2; ring.position.copy(player.position); ring.position.y = 0.1;
+    scene.add(ring);
+    setTimeout(() => { scene.remove(ring); ring.geometry.dispose(); ring.material.dispose(); }, 150);
+    for (const e of enemies) {
+      if (e.dead) continue;
+      if (player.position.distanceTo(e.mesh.position) <= state.attackRange + 0.8) { e.hp -= dmg; if (e.hp <= 0) killEnemy(e); }
+    }
+  }
+  function getCurrentIsland() {
+    for (const isl of ISLANDS) { const dx = player.position.x - isl.x, dz = player.position.z - isl.z; if (dx * dx + dz * dz <= isl.r * isl.r) return isl; }
+    return null;
+  }
+  function inTeacherArea() { const dx = player.position.x - TEACHER_AREA.x, dz = player.position.z - TEACHER_AREA.z; return dx * dx + dz * dz <= TEACHER_AREA.r * TEACHER_AREA.r; }
+  function updatePlayer(dt) {
+    if (state.pulling) return;
+    const move = new THREE.Vector3();
+    if (keys['KeyW']) move.z -= 1; if (keys['KeyS']) move.z += 1;
+    if (keys['KeyA']) move.x -= 1; if (keys['KeyD']) move.x += 1;
+    move.x += joyVec.x; move.z += joyVec.y;
+    if (move.lengthSq() > 0) {
+      if (move.lengthSq() > 1) move.normalize();
+      let mult = state.equippedAccessory?.speedMult || 1;
+      if (state.transformed) { if (state.transformType === 'rubber') mult *= 1.3; else mult *= 1.2; }
+      player.position.addScaledVector(move, state.speed * mult * dt);
+      player.rotation.y = Math.atan2(move.x, move.z);
+    }
+    player.position.x = THREE.MathUtils.clamp(player.position.x, -150, 150);
+    player.position.z = THREE.MathUtils.clamp(player.position.z, -100, 350);
+  }
+  function updateEnemies(dt) {
+    const cur = getCurrentIsland(); const now = performance.now();
+    for (const e of enemies) {
+      if (e.dead) continue;
+      if (e.burning > 0) {
+        e.burning -= dt; e.hp -= e.burnDps * dt;
+        if (e.mesh.material) e.mesh.material.emissiveIntensity = 0.4 + Math.abs(Math.sin(now * 0.008)) * 0.6;
+        if (e.burning <= 0) { e.burning = 0; e.burnType = null; if (e.mesh.material) { e.mesh.material.emissive.setHex(e.originalEmissive || 0x000000); e.mesh.material.emissiveIntensity = e.originalEmissive ? 0.3 : 0; } e.burnDps = 0; }
+        if (e.hp <= 0) { killEnemy(e); continue; }
+      }
+      const toPlayer = new THREE.Vector3().subVectors(player.position, e.mesh.position);
+      toPlayer.y = 0; const d = toPlayer.length();
+      const sameIsland = (cur && cur.idx === e.islandIdx) || (e.islandIdx === -1 && inTeacherArea()) || (e.isBoss && d < 40);
+      if (sameIsland && d > 0.8 && d < 50) { toPlayer.normalize(); e.mesh.position.addScaledVector(toPlayer, e.speed * dt); e.mesh.rotation.y = Math.atan2(toPlayer.x, toPlayer.z); }
+      if (!e.isBoss && e.islandIdx >= 0) {
+        const isl = ISLANDS[e.islandIdx];
+        const dx = e.mesh.position.x - isl.x, dz = e.mesh.position.z - isl.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist > isl.r - 0.5) { e.mesh.position.x = isl.x + (dx / dist) * (isl.r - 0.5); e.mesh.position.z = isl.z + (dz / dist) * (isl.r - 0.5); }
+      }
+      e.attackCooldown -= dt;
+      if (sameIsland && d < 2 && e.attackCooldown <= 0) { e.attackCooldown = 1; takeDamage(e.damage); }
+      const burnKey = e.burning > 0 ? e.burnType : '';
+      if (e.lastHp !== e.hp || e.lastBurnKey !== burnKey) {
+        const customColor = e.pinkBar ? '#ff69b4' : (e.purpleBar ? '#a020f0' : (e.magmaBar ? '#ff5500' : null));
+        drawHealthBar(e.hb, e.hp, e.maxHp, e.burning > 0 ? e.burnType : null, customColor);
+        e.lastHp = e.hp; e.lastBurnKey = burnKey;
+      }
+    }
+    enemies = enemies.filter(e => !e.dead);
+  }
+  let spawnTimer = 0;
+  function updateSpawning(dt) {
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      spawnTimer = 2;
+      const isl = getCurrentIsland();
+      if (isl && isl.enemyType !== 'Босс') {
+        const count = enemies.filter(e => !e.dead && e.islandIdx === isl.idx && !e.isBoss).length;
+        if (count < 6) spawnEnemy(isl);
+      }
+    }
+    for (const e of enemies) { if (e.dead) continue; if (!e.isBoss && e.islandIdx >= 0 && player.position.distanceTo(e.mesh.position) > 100) { scene.remove(e.mesh); e.dead = true; if (e.hb && e.hb.tex) e.hb.tex.dispose(); } }
+    enemies = enemies.filter(e => !e.dead);
+  }
+  let nearInteractable = null;
+  function updateInteraction() {
+    if (modalEl.classList.contains('open') || document.getElementById('dialogueScreen').style.display === 'flex') { interactBtn.style.display = 'none'; nearInteractable = null; return; }
+    nearInteractable = null;
+    let bestDist = 4;
+    for (const it of interactables) { const d = player.position.distanceTo(it.mesh.position); if (d < bestDist) { bestDist = d; nearInteractable = it; } }
+    if (nearInteractable) {
+      interactBtn.style.display = 'block';
+      if (nearInteractable.type === 'cloak_merchant' && state.cloakBought) interactBtn.textContent = 'Плащ уже куплен';
+      else if (nearInteractable.type === 'instinct_npc' && state.maxInstinctCharges > 0) interactBtn.textContent = 'Инстинкт уже куплен';
+      else if (nearInteractable.type === 'level_max_npc' && state.level >= 100) interactBtn.textContent = 'Уровень уже максимальный';
+      else if (nearInteractable.type === 'teacher' && state.hasAura) interactBtn.textContent = 'Учитель (Аура куплена)';
+      else interactBtn.textContent = nearInteractable.prompt;
+    } else interactBtn.style.display = 'none';
+  }
+  function openAuraShop() {
+    let html = `<h2>👤 Учитель</h2><p>Аура: тело чёрное, +20% урона.</p><div style="margin:12px 0;color:#6c6">💰 У тебя: ${fmt(state.beli)}</div>
+      <div class="item-row"><div><b>👤 Аура</b><div style="font-size:12px;color:#888">+20% ко всему урону</div></div>
+      <button class="buy-btn" id="buyAura" ${state.beli < 500000 ? 'disabled' : ''}>500.000 Б</button></div>`;
+    openModal(html);
+    const btn = document.getElementById('buyAura');
+    if (btn) btn.onclick = () => {
+      if (state.beli < 500000) { toast('Мало Белли'); return; }
+      state.beli -= 500000; state.hasAura = true;
+      if (!state.transformed) { pBodyMat.color.setHex(0x111111); pHeadMat.color.setHex(0x222222); }
+      toast('👤 Аура куплена!'); saveProgress(); updateHUD(); closeModal();
+    };
+  }
+  function doInteract() {
+    if (!nearInteractable || !gameStarted) return;
+    const it = nearInteractable;
+    if (it.type === 'quest') openQuest(it.data.islandIdx);
+    else if (it.type === 'prison_quest') openPrisonQuest(it.data.boss);
+    else if (it.type === 'saber_button') {
+      it.mesh.material.color.set(0x00ff00); state.buttonsPressed++;
+      toast(`Кнопка (${state.buttonsPressed}/3)`);
+      if (state.buttonsPressed >= 3 && !state.saberUnlocked) { state.saberUnlocked = true; spawnSaberBoss(); toast('Остров Сабли открыт!'); }
+      saveProgress();
+    } else if (it.type === 'grave') {
+      if (state.hasGuitarParts) { toast('Уже взяты'); return; }
+      if (state.beli < 5000000) { toast('Нужно 5.000.000 Б'); return; }
+      state.beli -= 5000000; state.hasGuitarParts = true; toast('Части гитары!'); saveProgress();
+    } else if (it.type === 'guitar_npc') {
+      if (state.guitarDone) { toast('Уже собрана'); return; }
+      if (!state.hasGuitarParts) { toast('Нужны части'); return; }
+      if (state.beli < 10000000) { toast('Нужно 10.000.000 Б'); return; }
+      state.beli -= 10000000; state.guitarDone = true;
+      const g = { type: 'weapon', name: 'Гитара души', damage: 250 };
+      state.inventory.push(g); state.equippedWeapon = g; toast('Гитара!'); saveProgress();
+    } else if (it.type === 'ntk_npc') {
+      if (state.ntkDone) { toast('Уже создана'); return; }
+      if (!hasItem('Сади') || !hasItem('Вандо') || !hasItem('Шисую')) { toast('Нужны Сади, Вандо, Шисую'); return; }
+      if (state.beli < 2000000) { toast('Нужно 2.000.000 Б'); return; }
+      state.beli -= 2000000; state.inventory = state.inventory.filter(i => !['Сади', 'Вандо', 'Шисую'].includes(i.name));
+      state.ntkDone = true;
+      const ntk = { type: 'sword', name: 'Настоящая тройная катана', damage: 300 };
+      state.inventory.push(ntk); state.equippedWeapon = ntk; toast('НТК!'); saveProgress();
+    } else if (it.type === 'cloak_merchant') {
+      if (state.cloakBought) { toast('Уже куплен'); return; }
+      if (state.beli < 100000) { toast('Нужно 100.000 Б'); return; }
+      state.beli -= 100000; state.cloakBought = true;
+      const cloak = { type: 'accessory', name: 'Плащ странника', damageMult: 1.10, shield: 100 };
+      state.inventory.push(cloak); equipAccessory(cloak); toast('Плащ куплен!'); saveProgress();
+    } else if (it.type === 'instinct_npc') {
+      if (state.maxInstinctCharges > 0) { toast('Уже куплен'); return; }
+      if (state.beli < 750000) { toast('Нужно 750.000 Б'); return; }
+      state.beli -= 750000; state.maxInstinctCharges = 5;
+      document.getElementById('instinctBtn').style.display = 'block'; toast('Инстинкт куплен!'); saveProgress();
+    } else if (it.type === 'level_max_npc') {
+      if (state.level >= 100) { toast('Уже 100'); return; }
+      if (state.beli < 1000000000) { toast(`Нужно 1.000.000.000 Б (у тебя ${fmt(state.beli)})`); return; }
+      state.beli -= 1000000000; state.level = 100;
+      state.maxHp = 100 + 99 * 20; state.hp = state.maxHp; state.baseDamage = 10 + 99 * 2;
+      state.xp = 0; state.xpNext = Number.MAX_SAFE_INTEGER;
+      toast('🎉 МАКС УРОВЕНЬ!'); saveProgress();
+    } else if (it.type === 'teacher') {
+      if (state.hasAura) { showDialogue('Учитель', 'Ты уже обрёл Ауру.'); return; }
+      openAuraShop();
+    } else if (it.type === 'ghost') {
+      showDialogue('Призрак', 'Позади меня — дверь. За ней сидит Адмирал Льда.\n\nОн знает правду о твоём пути. Победи его, и он расскажет всё.');
+    } else if (it.type === 'detective') {
+      if (state.level < 100) { showDialogue('Детектив', 'Достигни 100 уровня — и я доверю ключ.'); return; }
+      if (state.gotKey) {
+        if (state.iceAdmiralBeaten && !state.toldDetective) {
+          state.toldDetective = true;
+          showDialogue('Детектив', 'Ты победил Адмирала Льда?! Значит Дон Фламинго уже во втором море...\n\nБыстрее! Нам нужно отправляться во второе море!', () => {
+            state.reachedSecondSea = true; saveProgress();
+            document.getElementById('secondSeaEnd').style.display = 'flex';
+          });
+        } else showDialogue('Детектив', 'Иди в Заснеженное Королевство. Найди пещеру.');
+        return;
+      }
+      state.gotKey = true; saveProgress();
+      showDialogue('Детектив', 'Ты достиг 100 уровня! Возьми ключ. Он откроет пещеру в Заснеженном Королевстве.\n\nВнутри ты найдёшь дверь и призрака. За дверью — Адмирал Льда.', () => toast('🗝 Ключ получен!'));
+    } else if (it.type === 'cave') {
+      if (!state.gotKey) { showDialogue('Пещера', 'Дверь заперта. Нужен ключ от детектива.'); return; }
+      showDialogue('Пещера', 'Ты входишь в пещеру...', () => { player.position.set(TEACHER_AREA.x, 0, TEACHER_AREA.z + 6); toast('✨ Телепорт'); });
+    } else if (it.type === 'return_portal') {
+      const snowIsl = ISLANDS[13]; player.position.set(snowIsl.x + 8, 0, snowIsl.z + 3);
+      toast('🌀 У пещеры');
+    } else if (it.type === 'ice_door') {
+      if (state.iceAdmiralBeaten) { showDialogue('Дверь', 'Дверь открыта. Адмирал побеждён.'); return; }
+      if (!state.iceAdmiralSpawned) { state.iceAdmiralSpawned = true; spawnIceAdmiral(); saveProgress(); toast('❄ Адмирал Льда!'); }
+      else toast('Дверь уже открыта');
+    }
+    updateHUD();
+  }
+  function updateHUD() {
+    document.getElementById('level').textContent = state.level;
+    document.getElementById('hpText').textContent = `${Math.max(0, Math.ceil(state.hp))}/${state.maxHp}`;
+    document.getElementById('hpFill').style.width = `${Math.max(0, state.hp / state.maxHp * 100)}%`;
+    const shieldBar = document.getElementById('shieldBar');
+    if (state.maxShield > 0) { shieldBar.style.display = 'block'; document.getElementById('shieldText').textContent = `${Math.ceil(state.shield)}/${state.maxShield}`; document.getElementById('shieldFill').style.width = `${Math.max(0, state.shield / state.maxShield * 100)}%`; } else shieldBar.style.display = 'none';
+    const tfBar = document.getElementById('transformBar'); const tfFill = document.getElementById('transformFill');
+    if (state.transformed) { tfBar.style.display = 'block'; document.getElementById('transformText').textContent = `${state.transformTimer.toFixed(1)}с`; tfFill.style.width = `${(state.transformTimer / 15 * 100)}%`; } else tfBar.style.display = 'none';
+    const instBar = document.getElementById('instinctBar');
+    if (state.instinctCharges > 0) { instBar.style.display = 'block'; document.getElementById('instinctText').textContent = `${state.instinctCharges}/${state.maxInstinctCharges}`; document.getElementById('instinctFill').style.width = `${state.instinctCharges / state.maxInstinctCharges * 100}%`; } else instBar.style.display = 'none';
+    document.getElementById('xpText').textContent = `${state.xp}/${state.xpNext}`;
+    document.getElementById('xpFill').style.width = `${Math.min(100, state.xp / state.xpNext * 100)}%`;
+    document.getElementById('beli').textContent = fmt(state.beli);
+    const isl = getCurrentIsland();
+    document.getElementById('island').textContent = isl ? isl.name : (inTeacherArea() ? 'Скрытая пещера' : 'Море');
+    const dragonBtn = document.getElementById('dragonVariantBtn');
+    if (state.equippedFruit && state.equippedFruit.name === 'Дракон') { dragonBtn.style.display = 'block'; dragonBtn.textContent = state.dragonVariant === 'west' ? '🐉 Запад' : '🐉 Восток'; } else dragonBtn.style.display = 'none';
+    const instBtn = document.getElementById('instinctBtn');
+    if (state.maxInstinctCharges > 0) { instBtn.style.display = 'block'; instBtn.textContent = `👁 Инстинкт (${state.instinctCharges})`; } else instBtn.style.display = 'none';
+  }
+  function updateRegenUI() {
+    const el = document.getElementById('regenStatus'); const lines = [];
+    if (state.hp > 0 && state.hp < state.maxHp) {
+      if (state.regenTimer < state.regenDelay) lines.push(`⏳ HP ${(state.regenDelay - state.regenTimer).toFixed(1)}с`);
+      else lines.push(`💚 HP +${Math.round(state.regenRate * 100)}%/с`);
+    }
+    if (state.maxShield > 0 && state.shield < state.maxShield) {
+      if (state.shieldRegenTimer < 2) lines.push(`⏳ Щит ${(2 - state.shieldRegenTimer).toFixed(1)}с`);
+      else lines.push(`🛡 Щит реген`);
+    }
+    el.textContent = lines.join(' · ');
+    el.style.color = lines.some(l => l.includes('💚') || l.includes('🛡')) ? '#2ecc71' : '#f39c12';
+  }
+  function updateSkillUI() {
+    const skills = getCurrentSkills(); const fruitName = state.equippedFruit ? state.equippedFruit.name : null; const color = fruitName ? FRUIT_COLORS[fruitName] : null;
+    skillBtns.forEach((btn, i) => {
+      const skill = skills[i]; const overlay = btn.querySelector('.cd-overlay'); const label = btn.querySelector('.label'); const key = btn.querySelector('.key');
+      if (!skill) { btn.classList.remove('show'); btn.classList.remove('hold-skill'); return; }
+      btn.classList.add('show');
+      if (skill.hold) btn.classList.add('hold-skill'); else btn.classList.remove('hold-skill');
+      if (color) { btn.style.background = `rgba(${color},0.85)`; btn.style.borderColor = `rgba(${color},1)`; } else { btn.style.background = 'rgba(120,120,120,0.6)'; btn.style.borderColor = 'rgba(255,255,255,0.4)'; }
+      key.textContent = skill.key; label.textContent = skill.name;
+      const cd = state.skillCooldowns[i];
+      if (cd > 0.05) { overlay.style.display = 'flex'; const txt = cd.toFixed(1); if (overlay.textContent !== txt) overlay.textContent = txt; btn.classList.remove('ready'); }
+      else { overlay.style.display = 'none'; btn.classList.add('ready'); }
+    });
+  }
+  const toastEl = document.getElementById('toast'); let toastTimer = null;
+  function toast(msg) { toastEl.textContent = msg; toastEl.style.opacity = '1'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toastEl.style.opacity = '0'; }, 2400); }
+  const modalEl = document.getElementById('modal');
+  function openModal(html) { stopGatling(); document.getElementById('modalBody').innerHTML = html; modalEl.classList.add('open'); }
+  function closeModal() { modalEl.classList.remove('open'); }
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  modalEl.addEventListener('click', (e) => { if (e.target === modalEl) closeModal(); });
+  function getShopList(cat) { return cat === 'fruit' ? FRUITS : cat === 'sword' ? SWORDS : cat === 'gun' ? GUNS : cat === 'accessory' ? ACCESSORIES : []; }
+  function getShopTitle(cat) { return cat === 'fruit' ? 'Магазин фруктов' : cat === 'sword' ? 'Магазин мечей' : cat === 'gun' ? 'Магазин ружей' : cat === 'accessory' ? 'Магазин аксессуаров' : 'Магазин'; }
+  function bindShopButtons(cat) {
+    document.querySelectorAll('.buy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.name; const list = getShopList(cat); const item = list.find(i => i.name === name);
+        if (!item || state.beli < item.price) return;
+        state.beli -= item.price;
+        const inv = { type: cat, name: item.name };
+        if (cat === 'fruit' || cat === 'sword' || cat === 'gun') inv.damage = item.damage;
+        if (cat === 'accessory') { if (item.damageMult) inv.damageMult = item.damageMult; if (item.hpBonus) inv.hpBonus = item.hpBonus; if (item.shield) inv.shield = item.shield; if (item.speedMult) inv.speedMult = item.speedMult; }
+        state.inventory.push(inv);
+        if (cat === 'fruit') state.equippedFruit = inv;
+        else if (cat === 'accessory') equipAccessory(inv);
+        else state.equippedWeapon = inv;
+        toast(`Куплено: ${item.name}`); saveProgress(); updateHUD(); openShop(cat);
+      });
+    });
+  }
+  function openShop(cat) {
+    const list = getShopList(cat); const title = getShopTitle(cat);
+    let html = `<h2>${title}</h2><div style="color:#6c6">💰 ${fmt(state.beli)} Белли</div><br>`;
+    for (const item of list) {
+      const owned = state.inventory.some(i => i.name === item.name); const can = state.beli >= item.price;
+      let stats = ''; if (item.damage) stats += `+${item.damage} урона`; if (item.desc) stats = item.desc;
+      html += `<div class="item-row"><div><b>${item.name}</b>${item.rarity ? `<span style="color:#888"> (${item.rarity})</span>` : ''}${item.legendary ? ' <span style="color:#f9c">★</span>' : ''}<div style="font-size:12px;color:#888">${stats}</div></div><div>${owned ? '<span style="color:#6c6">✓ куплено</span>' : `<button class="buy-btn" data-name="${item.name}" ${can ? '' : 'disabled'}>${fmt(item.price)} Б</button>`}</div></div>`;
+    }
+    openModal(html); bindShopButtons(cat);
+  }
+  function openQuest(islandIdx) {
+    const isl = ISLANDS[islandIdx]; const q = isl.quest;
+    let html = `<h2>Квест: ${isl.name}</h2><div style="color:#6c6">💰 ${fmt(state.beli)} Белли</div><br>`;
+    const targetText = isl.bossQuest ? 'Убей <b>босса яда</b>' : `Убей <b>${q.target} ${isl.enemyType.toLowerCase()}</b>`;
+    if (!q.accepted) html += `<p>${targetText}.</p><p>Награда: <b>${fmt(q.reward.beli)} Белли</b>, <b>${q.reward.xp} XP</b></p><button class="action-btn" id="acceptQuest">Принять</button>`;
+    else if (q.completed) html += `<p style="color:#6c6">Готово!</p><button class="action-btn" id="claimQuest">Забрать награду</button>`;
+    else html += `<p>Прогресс: <b>${q.current}/${q.target}</b></p>`;
+    openModal(html);
+    const acc = document.getElementById('acceptQuest'); if (acc) acc.onclick = () => { q.accepted = true; q.current = 0; closeModal(); toast('Принят!'); };
+    const clm = document.getElementById('claimQuest');
+    if (clm) clm.onclick = () => { state.beli += q.reward.beli; addXP(q.reward.xp); q.accepted = false; q.completed = false; q.current = 0; toast(`+${fmt(q.reward.beli)} Белли!`); saveProgress(); updateHUD(); closeModal(); };
+  }
+  function openPrisonQuest(bossType) {
+    const q = state.prisonQuests[bossType];
+    const names = { warden: 'Надзиратель', dangerousWarden: 'Опасный надзиратель', doflamingo: 'Дон Фламинго' };
+    const rewards = { warden: 5000000, dangerousWarden: 15000000, doflamingo: 50000000 };
+    let html = `<h2>Квест: ${names[bossType]}</h2>`;
+    if (!q.accepted && !q.completed) html += `<p>Убей <b>${names[bossType]}</b>.</p><p>Награда: <b>${fmt(rewards[bossType])} Белли</b></p><button class="action-btn" id="acceptPQ">Принять и призвать</button>`;
+    else if (q.completed) html += `<p style="color:#6c6">Готово!</p><button class="action-btn" id="claimPQ">Забрать</button>`;
+    else html += `<p>Квест принят.</p>`;
+    openModal(html);
+    const acc = document.getElementById('acceptPQ'); if (acc) acc.onclick = () => { q.accepted = true; if (!enemies.some(e => !e.dead && e.prisonBossType === bossType)) spawnPrisonBoss(bossType); closeModal(); };
+    const clm = document.getElementById('claimPQ'); if (clm) clm.onclick = () => { state.beli += rewards[bossType]; addXP(2000); q.accepted = false; q.completed = false; toast(`+${fmt(rewards[bossType])}!`); saveProgress(); updateHUD(); closeModal(); };
+  }
+  function openInventory() {
+    let html = `<h2>Инвентарь</h2><div style="color:#6c6">💰 ${fmt(state.beli)} Белли</div><br>`;
+    html += `<h3>Экипировано</h3>`;
+    if (state.equippedFruit) html += `<div class="item-row"><span>🍎 ${state.equippedFruit.name} (+${state.equippedFruit.damage})</span></div>`;
+    if (state.equippedWeapon) html += `<div class="item-row"><span>⚔ ${state.equippedWeapon.name} (+${state.equippedWeapon.damage})</span></div>`;
+    if (state.equippedAccessory) { const a = state.equippedAccessory; const extra = []; if (a.damageMult) extra.push(`+${Math.round((a.damageMult - 1) * 100)}% урона`); if (a.hpBonus) extra.push(`+${a.hpBonus} HP`); if (a.shield) extra.push(`${a.shield} щита`); html += `<div class="item-row"><span>🎩 ${a.name} (${extra.join(', ')})</span></div>`; }
+    html += `<h3>Все предметы</h3>`;
+    if (!state.inventory.length) html += `<p style="color:#888">Пусто</p>`;
+    for (const item of state.inventory) {
+      let desc = ''; if (item.damage) desc = `+${item.damage} урона`;
+      else if (item.type === 'accessory') { const extra = []; if (item.damageMult) extra.push(`+${Math.round((item.damageMult - 1) * 100)}% урона`); if (item.hpBonus) extra.push(`+${item.hpBonus} HP`); if (item.shield) extra.push(`${item.shield} щита`); desc = extra.join(', '); }
+      html += `<div class="item-row"><span>${item.name} (${desc})</span><button class="equip-btn" data-name="${item.name}" data-type="${item.type}">Экипировать</button></div>`;
+    }
+    openModal(html);
+    document.querySelectorAll('.equip-btn').forEach(btn => {
+      btn.onclick = () => {
+        const name = btn.dataset.name; const type = btn.dataset.type;
+        const item = state.inventory.find(i => i.name === name);
+        if (!item) return;
+        if (type === 'fruit') state.equippedFruit = item;
+        else if (type === 'accessory') equipAccessory(item);
+        else state.equippedWeapon = item;
+        saveProgress(); updateHUD(); closeModal();
+      };
+    });
+  }
+  document.querySelectorAll('[data-shop]').forEach(b => b.addEventListener('click', () => openShop(b.dataset.shop)));
+  document.getElementById('invBtn').addEventListener('click', openInventory);
+  document.getElementById('menuBtn').addEventListener('click', () => {
+    if (confirm('Выйти в меню? Прогресс сохранится.')) { saveProgress(); setTimeout(() => { location.reload(); }, 100); }
+  });
+
+  function showGameOver() {
+    stopGatling();
+    if (state.pullAnim) { scene.remove(state.pullAnim.arm); state.pullAnim = null; state.pulling = false; }
+    saveProgress();
+    document.getElementById('gameover').style.display = 'flex';
+    document.getElementById('finalScore').textContent = fmt(state.beli);
+  }
+  document.getElementById('restart').addEventListener('click', () => { saveProgress(); setTimeout(() => location.reload(), 100); });
+
+  function snapshot() {
+    return {
+      version: 1, slot: state.currentSlot, playerName: state.playerName,
+      reachedSecondSea: state.reachedSecondSea, savedAt: Date.now(),
+      state: {
+        level: state.level, xp: state.xp, xpNext: state.xpNext,
+        hp: state.hp, maxHp: state.maxHp, baseDamage: state.baseDamage, beli: state.beli,
+        inventory: state.inventory.map(i => ({ ...i })),
+        equippedFruitName: state.equippedFruit?.name || null,
+        equippedWeaponName: state.equippedWeapon?.name || null,
+        equippedAccessoryName: state.equippedAccessory?.name || null,
+        buttonsPressed: state.buttonsPressed, saberUnlocked: state.saberUnlocked,
+        hasGuitarParts: state.hasGuitarParts, ntkDone: state.ntkDone, guitarDone: state.guitarDone,
+        cloakBought: state.cloakBought, dragonVariant: state.dragonVariant,
+        gotKey: state.gotKey, teacherSpoke: state.teacherSpoke,
+        iceAdmiralBeaten: state.iceAdmiralBeaten, toldDetective: state.toldDetective,
+        hasAura: state.hasAura, maxInstinctCharges: state.maxInstinctCharges,
+        iceAdmiralSpawned: state.iceAdmiralSpawned,
+        prisonQuests: JSON.parse(JSON.stringify(state.prisonQuests)),
+        position: { x: player.position.x, z: player.position.z },
+      },
+      islands: ISLANDS.map(isl => ({ ...isl.quest })),
+    };
+  }
+  let saveInProgress = false;
+  async function saveProgress() {
+    if (!state.currentSlot || saveInProgress || !currentUser) return;
+    saveInProgress = true;
+    try { await SaveAPI.write(userSlotKey(state.currentSlot), snapshot()); }
+    catch (e) { console.warn('Save failed:', e); }
+    saveInProgress = false;
+  }
+  setInterval(() => { if (gameStarted) saveProgress(); }, 30000);
+  window.addEventListener('beforeunload', () => { if (gameStarted) saveProgress(); });
+
+  const camOffset = new THREE.Vector3(0, 10, 14);
+  function updateCamera(dt) { const target = new THREE.Vector3(player.position.x, 0, player.position.z).add(camOffset); camera.position.lerp(target, 1 - Math.pow(0.001, dt)); camera.lookAt(player.position.x, 2, player.position.z); }
+  let lastTime = performance.now(); let lastIslandIdx = -2;
+  function checkIslandChange() {
+    const isl = getCurrentIsland(); const inTeacher = inTeacherArea();
+    const idx = inTeacher ? -1 : (isl ? isl.idx : -2);
+    if (idx !== lastIslandIdx) {
+      lastIslandIdx = idx;
+      if (inTeacher) toast('📍 Скрытая пещера');
+      else if (isl) {
+        toast(`📍 ${isl.name} (ур. ${isl.level})`);
+        if (isl.name === 'Гидры') { const alive = enemies.some(e => !e.dead && e.isPoisonBoss); if (!alive) { spawnPoisonBoss(); showBossAnnouncement('БОСС ЯДА'); } }
+        if (isl.name === 'Вулкан') { const alive = enemies.some(e => !e.dead && e.isMagmaAdmiral); if (!alive) spawnMagmaAdmiral(); }
+      }
+      updateHUD();
+    }
+  }
+  function loop(now) {
+    requestAnimationFrame(loop);
+    const dt = Math.min((now - lastTime) / 1000, 0.1); lastTime = now;
+    const dialogueOpen = document.getElementById('dialogueScreen').style.display === 'flex';
+    if (!gameStarted || state.hp <= 0 || modalEl.classList.contains('open') || dialogueOpen) {
+      renderer.render(scene, camera); updateSkillUI(); updateRegenUI(); return;
+    }
+    state.attackCooldown = Math.max(0, state.attackCooldown - dt);
+    for (let i = 0; i < 3; i++) if (state.skillCooldowns[i] > 0) state.skillCooldowns[i] = Math.max(0, state.skillCooldowns[i] - dt);
+    state.regenTimer += dt; state.shieldRegenTimer += dt;
+    if (state.regenTimer >= state.regenDelay && state.hp > 0 && state.hp < state.maxHp) {
+      const before = state.hp; state.hp = Math.min(state.maxHp, state.hp + state.maxHp * state.regenRate * dt);
+      if (Math.floor(before) !== Math.floor(state.hp)) updateHUD();
+    }
+    if (state.maxShield > 0 && state.shield < state.maxShield && state.shieldRegenTimer >= 2) {
+      const before = Math.ceil(state.shield); state.shield = Math.min(state.maxShield, state.shield + 100 * dt);
+      if (Math.ceil(state.shield) !== before) updateHUD();
+    }
+    if (state.transformed) { state.transformTimer -= dt; if (state.transformTimer <= 0) { deactivateTransform(); toast('Трансформация завершена'); } }
+    if (state.transformed && state.transformType === 'rubber') {
+      for (const p of steamParticles) { p.position.y += dt * 2.5; if (p.position.y > 3.5) p.position.y = 0.5; p.material.opacity = Math.max(0, 0.5 * (1 - (p.position.y - 0.5) / 3)); }
+    }
+    updatePull(dt);
+    if (state.gatlingActive) {
+      const skills = getCurrentSkills(); const skill = skills[state.gatlingIndex];
+      if (!skill || !skill.hold || state.hp <= 0) stopGatling();
+      else { state.gatlingTimer -= dt; if (state.gatlingTimer <= 0) { state.gatlingTimer = 0.1; fireGatlingPunch(skill); } }
+    }
+    updatePlayer(dt); updateEnemies(dt); updateProjectiles(dt); updateSpawning(dt);
+    updateInteraction(); updateCamera(dt); checkIslandChange(); updateSkillUI(); updateRegenUI();
+    renderer.render(scene, camera);
+  }
+
+  updateHUD(); updateRegenUI(); updateSkillUI();
+  for (let i = 0; i < 4; i++) spawnEnemy(ISLANDS[0]);
+  requestAnimationFrame(loop);
+  addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+  window.__startGame = () => { gameStarted = true; lastTime = performance.now(); updateHUD(); updateRegenUI(); updateSkillUI(); };
+  window.__returnToMenu = () => { saveProgress(); setTimeout(() => location.reload(), 150); };
+}
+
+// ================= SLOT UI =================
+async function renderSlots() {
+  const container = document.getElementById('slotsContainer');
+  container.innerHTML = '';
+  if (!currentUser) return;
+  document.getElementById('accountName').textContent = '👤 ' + currentUser;
+  for (const slotId of SLOT_IDS) {
+    const fullKey = userSlotKey(slotId);
+    const r = await SaveAPI.read(fullKey);
+    const data = r.ok ? r.data : null;
+    const card = document.createElement('div');
+    card.className = 'slot-card';
+    if (!data) {
+      card.classList.add('empty');
+      card.innerHTML = `
+        <div class="slot-empty-text">Слот ${slotId.replace('slot','')} — пусто</div>
+        <button class="slot-btn create" data-slot="${slotId}">+ Создать</button>
+        <div class="slot-empty-note">Новая игра</div>
+      `;
+      card.querySelector('.slot-btn.create').addEventListener('click', () => createSlot(slotId));
+    } else {
+      if (data.reachedSecondSea) card.classList.add('second-sea');
+      const st = data.state || {};
+      const islandNames = ['Стартовый','Бандитов','Пиратов','Морской','Кладбище','Сабли','Гидры','Лесной','Вулкан','Ледяной','Скайпия','Верхняя Скайпия','Тюрьма','Заснеженное Королевство'];
+      let location = 'Море';
+      if (st.position) {
+        const px = st.position.x, pz = st.position.z;
+        const ISL_COORDS = [[0,0],[40,0],[0,40],[-40,0],[0,-40],[40,-40],[-40,-40],[80,0],[80,40],[80,-40],[120,0],[120,40],[-80,0],[-80,45]];
+        for (let i = 0; i < ISL_COORDS.length; i++) {
+          const dx = px - ISL_COORDS[i][0], dz = pz - ISL_COORDS[i][1];
+          if (dx*dx + dz*dz <= 144) { location = islandNames[i]; break; }
+        }
+        if (pz > 280) location = 'Скрытая пещера';
+      }
+      const beliFmt = String(Math.floor(st.beli || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      const lvl = st.level || 1;
+      card.innerHTML = `
+        <div class="slot-header">
+          <div class="slot-badge">Слот ${slotId.replace('slot','')}${data.reachedSecondSea ? ' ✨' : ''}</div>
+          <div class="slot-player">${data.playerName || 'Игрок'}</div>
+        </div>
+        <div class="slot-info">
+          Ур. <b>${lvl}</b> · 💰 <b>${beliFmt}</b> Б<br>
+          📍 ${location}
+          ${data.reachedSecondSea ? '<br><span class="blue">🌊 Второе море достигнуто</span>' : ''}
+        </div>
+        <div class="slot-actions">
+          <button class="slot-btn play ${data.reachedSecondSea ? 'blue' : ''}" data-act="play">▶ Играть</button>
+          <button class="slot-btn ghost" data-act="export">📥</button>
+          <button class="slot-btn danger" data-act="delete">🗑</button>
+        </div>
+      `;
+      card.querySelector('[data-act="play"]').addEventListener('click', () => playSlot(slotId, data));
+      card.querySelector('[data-act="export"]').addEventListener('click', async () => { await SaveAPI.export(fullKey, data); });
+      card.querySelector('[data-act="delete"]').addEventListener('click', async () => {
+        if (confirm(`Удалить сохранение «${data.playerName}» (Слот ${slotId.replace('slot','')})?`)) {
+          await SaveAPI.delete(fullKey);
+          renderSlots();
+        }
+      });
+    }
+    container.appendChild(card);
+  }
+}
+
+async function createSlot(slotId) {
+  const name = prompt(`Имя для слота ${slotId.replace('slot','')}:`, 'Игрок');
+  if (name === null) return;
+  const trimmed = (name || '').trim().slice(0, 20) || 'Игрок';
+  const freshData = {
+    version: 1, slot: slotId, playerName: trimmed, reachedSecondSea: false, savedAt: Date.now(),
+    state: {
+      level: 1, xp: 0, xpNext: 10, hp: 100, maxHp: 100, baseDamage: 10, beli: 500,
+      inventory: [], equippedFruitName: null, equippedWeaponName: null, equippedAccessoryName: null,
+      buttonsPressed: 0, saberUnlocked: false, hasGuitarParts: false, ntkDone: false, guitarDone: false,
+      cloakBought: false, dragonVariant: 'west', gotKey: false, teacherSpoke: false,
+      iceAdmiralBeaten: false, toldDetective: false, hasAura: false, maxInstinctCharges: 0,
+      iceAdmiralSpawned: false, prisonQuests: { warden: { accepted: false, completed: false }, dangerousWarden: { accepted: false, completed: false }, doflamingo: { accepted: false, completed: false } },
+      position: { x: 0, z: 0 }
+    },
+    islands: Array.from({ length: 14 }, (_, i) => ({ target: i === 6 ? 1 : 3 + Math.floor(i * 1.5), current: 0, accepted: false, completed: false, reward: { beli: 500 * (i + 1) * (i + 1), xp: 20 * (i + 1) } }))
+  };
+  await SaveAPI.write(userSlotKey(slotId), freshData);
+  renderSlots();
+}
+
+async function playSlot(slotId, data) {
+  document.getElementById('startMenu').style.display = 'none';
+  document.body.classList.add('playing');
+  setupGame(data);
+  if (window.__startGame) window.__startGame();
+}
+
+// Import handler
+document.getElementById('importBtn').addEventListener('click', async () => {
+  if (!currentUser) { alert('Сначала войди в аккаунт'); return; }
+  const r = await SaveAPI.import();
+  if (!r.ok) { alert('Не удалось импортировать файл'); return; }
+  const targetSlot = prompt('В какой слот импортировать? (1, 2, 3, 4)', '1');
+  if (!targetSlot) return;
+  const slotId = 'slot' + targetSlot.trim();
+  if (!SLOT_IDS.includes(slotId)) { alert('Неверный слот'); return; }
+  const data = r.data;
+  data.slot = slotId;
+  if (!data.playerName) data.playerName = r.filename || 'Импорт';
+  await SaveAPI.write(userSlotKey(slotId), data);
+  renderSlots();
+  alert('Импортировано в ' + slotId);
+});
+
+// ================= AUTH UI =================
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const isLogin = tab.dataset.tab === 'login';
+    document.getElementById('loginForm').style.display = isLogin ? 'block' : 'none';
+    document.getElementById('registerForm').style.display = isLogin ? 'none' : 'block';
+  });
+});
+
+function enterAccount(username) {
+  currentUser = username;
+  setSession(username);
+  authScreen.style.display = 'none';
+  startMenu.style.display = 'flex';
+  document.getElementById('accountName').textContent = '👤 ' + username;
+  renderSlots();
+}
+
+function doLogin() {
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  document.getElementById('loginError').textContent = '';
+  const res = tryLogin(u, p);
+  if (!res.ok) { document.getElementById('loginError').textContent = res.err; return; }
+  enterAccount(res.username);
+}
+function doRegister() {
+  const u = document.getElementById('regUser').value;
+  const p1 = document.getElementById('regPass').value;
+  const p2 = document.getElementById('regPass2').value;
+  document.getElementById('regError').textContent = '';
+  if (p1 !== p2) { document.getElementById('regError').textContent = 'Пароли не совпадают'; return; }
+  const res = tryRegister(u, p1);
+  if (!res.ok) { document.getElementById('regError').textContent = res.err; return; }
+  enterAccount(res.username);
+}
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('regBtn').addEventListener('click', doRegister);
+document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('regPass2').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  if (!confirm('Выйти из аккаунта?')) return;
+  clearSession();
+  location.reload();
+});
+
+document.getElementById('howBtn').addEventListener('click', () => {
+  const p = document.getElementById('howPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+});
+
+// ================= INIT =================
+async function init() {
+  try {
+    if (!checkWebGL()) { showError('Нет WebGL. Обновите браузер.'); return; }
+    setProgress(5, 'Подготовка...');
+    THREE = await loadThree();
+    setProgress(55, 'Загрузка...');
+    await new Promise(r => setTimeout(r, 60));
+
+    const session = getSession();
+    if (session && session.username) {
+      const accounts = getAccounts();
+      const key = Object.keys(accounts).find(k => k === session.username);
+      if (key) {
+        currentUser = key;
+        setProgress(80, 'Сохранения...');
+        await renderSlots();
+        setProgress(100, 'Готово!');
+        await new Promise(r => setTimeout(r, 300));
+        loadingScreen.style.display = 'none';
+        startMenu.style.display = 'flex';
+        document.getElementById('accountName').textContent = '👤 ' + currentUser;
+        return;
+      } else {
+        clearSession();
+      }
+    }
+
+    setProgress(100, 'Готово!');
+    await new Promise(r => setTimeout(r, 200));
+    loadingScreen.style.display = 'none';
+    authScreen.style.display = 'flex';
+  } catch (err) {
+    console.error(err);
+    showError(err.message || 'Неизвестная ошибка.');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
