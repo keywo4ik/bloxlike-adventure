@@ -325,7 +325,7 @@
 <script type="module">
 // ================= AUTH =================
  // ================= ONLINE P2P =================
-const Online = {
+  const Online = {
   peer: null, connections: [], isHost: false, roomCode: null,
   remotePlayers: new Map(), syncInterval: null,
   sceneRef: null, playerRef: null,
@@ -603,12 +603,35 @@ const FRUIT_SKILLS = {
   'Резина': [{ key: 'Z', name: 'Стретч', cd: 5, damage: 200, range: 30, type: 'pull' }, { key: 'X', name: 'Гатлинг', cd: 1, damage: 30, range: 20, type: 'gatling', hold: true }, { key: 'C', name: 'Трансф.', cd: 30, damage: 0, range: 0, type: 'transform' }],
   'Яд': [{ key: 'Z', name: 'Ядовит. удар', cd: 3, damage: 200, range: 5, type: 'melee', poison: { time: 6, dps: 50 } }, { key: 'X', name: 'Дых. гидры', cd: 6, damage: 350, range: 25, type: 'projectile', poison: { time: 8, dps: 90 } }, { key: 'C', name: 'Трансформ.', cd: 30, damage: 0, range: 0, type: 'transform' }],
   'Паутина': [{ key: 'Z', name: 'Паутинный хлыст', cd: 3, damage: 500, range: 15, type: 'pull' }, { key: 'X', name: 'Сеть', cd: 7, damage: 800, range: 8, type: 'melee' }, { key: 'C', name: 'Кокон', cd: 20, damage: 0, range: 0, type: 'transform' }],
+   'Песок': [
+    { key: 'Z', name: 'Песчаный вихрь', cd: 3, damage: 300, range: 6, type: 'melee' },
+    { key: 'X', name: 'Песчаный шторм', cd: 8, damage: 500, range: 12, type: 'melee' }
+  ],
+  'Хрум': [
+    { key: 'Z', name: 'Съесть (+2кг)', cd: 0.5, damage: 100, range: 8, type: 'kg_eat' },
+    { key: 'X', name: 'Хрум-удар', cd: 5, damage: 400, range: 10, type: 'melee' },
+    { key: 'C', name: 'Трансформация', cd: 0, damage: 0, range: 0, type: 'kg_transform' }
+  ],
+  'Сталь': [
+    { key: 'Z', name: 'Стальной разрез', cd: 3, damage: 500, range: 6, type: 'melee' },
+    { key: 'X', name: 'Стальная волна', cd: 8, damage: 900, range: 12, type: 'melee' }
+  ],
+  'Будда': [
+    { key: 'Z', name: 'Удар Будды', cd: 4, damage: 800, range: 8, type: 'melee' },
+    { key: 'X', name: 'Золотая ладонь', cd: 10, damage: 1500, range: 15, type: 'melee' },
+    { key: 'C', name: 'Трансформация Будды', cd: 0, damage: 0, range: 0, type: 'buddha_toggle' }
+  ],
+  'Портал': [
+    { key: 'Z', name: 'Портальный удар', cd: 3, damage: 400, range: 6, type: 'melee' },
+    { key: 'X', name: 'Открыть портал', cd: 15, damage: 0, range: 0, type: 'portal_menu' },
+    { key: 'C', name: 'Портальный шторм', cd: 10, damage: 600, range: 12, type: 'melee' }
+  ],
 };
 const DRAGON_SKILLS = {
   west: [{ key: 'Z', name: 'Огн. дых.', cd: 4, damage: 400, range: 25, type: 'projectile', burn: { time: 4, dps: 80 } }, { key: 'X', name: 'Хвост', cd: 8, damage: 700, range: 10, type: 'melee' }, { key: 'C', name: 'Трансф.', cd: 30, damage: 0, range: 0, type: 'transform' }],
   east: [{ key: 'Z', name: 'Молния', cd: 3, damage: 300, range: 30, type: 'projectile', poison: { time: 3, dps: 70 } }, { key: 'X', name: 'Вихрь', cd: 6, damage: 550, range: 12, type: 'melee' }, { key: 'C', name: 'Трансф.', cd: 30, damage: 0, range: 0, type: 'transform' }],
 };
-const FRUIT_COLORS = { 'Кило': '150,150,150', 'Огонь': '255,100,30', 'Лёд': '100,200,255', 'Дрожь': '200,220,255', 'Магма': '255,60,0', 'Боль': '150,50,200', 'Дракон': '255,180,0', 'Резина': '255,126,185', 'Яд': '160,32,240', 'Паутина': '255,105,180' };
+const FRUIT_COLORS = { 'Кило': '150,150,150', 'Огонь': '255,100,30', 'Лёд': '100,200,255', 'Дрожь': '200,220,255', 'Магма': '255,60,0', 'Боль': '150,50,200', 'Дракон': '255,180,0', 'Резина': '255,126,185', 'Яд': '160,32,240', 'Паутина': '255,105,180', 'Песок': '255,220,140', 'Хрум': '200,140,80', 'Сталь': '150,150,160', 'Будда': '255,215,0', 'Портал': '100,0,180'. }
 
 function createHealthBar(isBoss) {
   const canvas = document.createElement('canvas');
@@ -736,6 +759,11 @@ function setupGame(saveData) {
     { name: 'Резина', price: 5000000, damage: 800, rarity: 'редкий' },
     { name: 'Боль', price: 5000000, damage: 400, rarity: 'легендарный' },
     { name: 'Паутина', price: 8000000, damage: 700, rarity: 'легендарный' },
+    { name: 'Песок', price: 300000, damage: 100, rarity: 'необычный' },
+    { name: 'Хрум', price: 3000000, damage: 200, rarity: 'редкий' },
+    { name: 'Сталь', price: 15000000, damage: 600, rarity: 'легендарный' },
+    { name: 'Портал', price: 20000000, damage: 550, rarity: 'легендарный' },
+    { name: 'Будда', price: 50000000, damage: 1000, rarity: 'мифический' },
     { name: 'Дракон', price: 100000000, damage: 1500, rarity: 'мифический' },
   ];
   const SWORDS = [
@@ -785,7 +813,9 @@ function setupGame(saveData) {
     cloakBought: false, transformed: false, transformTimer: 0, transformType: null,
     dragonVariant: 'west', pulling: false, pullAnim: null, gatlingActive: false, gatlingTimer: 0, gatlingIndex: -1,
     prisonQuests: { warden: { accepted: false, completed: false }, dangerousWarden: { accepted: false, completed: false }, doflamingo: { accepted: false, completed: false } },
-    gotKey: false, teacherSpoke: false, iceAdmiralBeaten: false, toldDetective: false,
+        gotKey: false, teacherSpoke: false, iceAdmiralBeaten: false, toldDetective: false,
+    kg: 0, kgMaxUses: 500, kgUses: 0, kgTransform: false,
+    buddhaMode: false, buddhaBaseHp: 0, buddhaBaseDmg: 0,
     instinctCharges: 0, maxInstinctCharges: 0, iceAdmiralSpawned: false, hasAura: false,
     reachedSecondSea: false, currentSlot: null, playerName: '',
   };
@@ -838,6 +868,27 @@ function setupGame(saveData) {
 
   function fmt(n) { return String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
   function totalDamage() {
+     function getKgMult() {
+    if (state.equippedFruit?.name !== 'Хрум') return 1;
+    let m = 1 + state.kg * 0.001;
+    if (state.kgTransform) m *= 2;
+    return m;
+  }
+  function showPortalMenu() {
+    let html = `<h2>🌀 Портальный переход</h2><p>Выбери остров:</p>`;
+    for (const isl of ISLANDS) {
+      html += `<div class="item-row"><span>📍 ${isl.name} (ур. ${isl.level})</span><button class="action-btn" data-tp="${isl.idx}">→</button></div>`;
+    }
+    openModal(html);
+    document.querySelectorAll('[data-tp]').forEach(b => {
+      b.onclick = () => {
+        const i = parseInt(b.dataset.tp);
+        const isl = ISLANDS[i];
+        if (isl) { player.position.set(isl.x, 0, isl.z); toast(`🌀 Портал: ${isl.name}`); }
+        closeModal();
+      };
+    });
+ }
     let d = state.baseDamage;
     if (state.equippedFruit) d += state.equippedFruit.damage;
     if (state.equippedWeapon) d += state.equippedWeapon.damage;
@@ -1044,6 +1095,18 @@ function setupGame(saveData) {
           const snowIsl = ISLANDS[13];
           player.position.set(snowIsl.x + 8, 0, snowIsl.z + 3);
           toast('🌀 Авто-возврат к пещере'); saveProgress();
+          function skillDamage(skill) {
+    const base = skill.damage * (1 + state.level * 0.15);
+    const accMult = state.equippedAccessory?.damageMult || 1;
+    const auraMult = state.hasAura ? 1.2 : 1;
+    const kgMult = getKgMult();
+    const buddhaMult = state.buddhaMode ? 1.5 : 1;
+    let transformMult = 1;
+    if (state.transformed) {
+      if (state.transformType === 'poison' || state.transformType === 'dragon_west' || state.transformType === 'spider' || state.transformType === 'magma') transformMult = 2;
+      else if (state.transformType === 'dragon_east') transformMult = 1.8;
+    }
+    return Math.floor(base * accMult * auraMult * kgMult * buddhaMult * transformMult);
         }
       );
     }
@@ -1072,15 +1135,27 @@ function setupGame(saveData) {
     if (state.equippedFruit.name === 'Дракон') return DRAGON_SKILLS[state.dragonVariant];
     return FRUIT_SKILLS[state.equippedFruit.name] || [];
   }
-  function skillDamage(skill) {
-    const base = skill.damage * (1 + state.level * 0.15);
-    const accMult = state.equippedAccessory?.damageMult || 1;
-    const auraMult = state.hasAura ? 1.2 : 1;
-    let transformMult = 1;
-    if (state.transformed) {
-      if (state.transformType === 'poison' || state.transformType === 'dragon_west' || state.transformType === 'spider' || state.transformType === 'magma') transformMult = 2;
-      else if (state.transformType === 'dragon_east') transformMult = 1.8;
+    function getKgMult() {
+    if (state.equippedFruit?.name !== 'Хрум') return 1;
+    let m = 1 + state.kg * 0.001;
+    if (state.kgTransform) m *= 2;
+    return m;
+  }
+  function showPortalMenu() {
+    let html = `<h2>🌀 Портальный переход</h2><p>Выбери остров:</p>`;
+    for (const isl of ISLANDS) {
+      html += `<div class="item-row"><span>📍 ${isl.name} (ур. ${isl.level})</span><button class="action-btn" data-tp="${isl.idx}">→</button></div>`;
     }
+    openModal(html);
+    document.querySelectorAll('[data-tp]').forEach(b => {
+      b.onclick = () => {
+        const i = parseInt(b.dataset.tp);
+        const isl = ISLANDS[i];
+        if (isl) { player.position.set(isl.x, 0, isl.z); toast(`🌀 Портал: ${isl.name}`); }
+        closeModal();
+      };
+    });
+  }
     return Math.floor(base * accMult * auraMult * transformMult);
   }
   function skillColorHex(name) { const rgb = FRUIT_COLORS[name] || '255,255,255'; const [r, g, b] = rgb.split(',').map(Number); return (r << 16) | (g << 8) | b; }
